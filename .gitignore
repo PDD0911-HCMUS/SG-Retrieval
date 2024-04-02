@@ -1,0 +1,8 @@
+Datasets
+
+.venv
+**/__pycache__/
+
+*.pt
+*.zip
+*.txt
