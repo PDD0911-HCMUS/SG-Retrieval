@@ -8,3 +8,7 @@ num_workers = 4
 num_epochs = 100
 
 max_length = 128
+
+device = 'cuda:2'
+
+seed = 42

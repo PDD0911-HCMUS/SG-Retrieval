@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.nn import GCNConv, global_mean_pool
+# from torch_geometric.nn import GCNConv, global_mean_pool
+# from transformers import BertModel
 
 def project_embeddings(embeddings, num_projection_layers, projection_dims, dropout_rate):
     projected_embeddings = nn.Linear(embeddings.size(1), projection_dims)(embeddings)
@@ -13,59 +14,40 @@ def project_embeddings(embeddings, num_projection_layers, projection_dims, dropo
         projected_embeddings = nn.LayerNorm(projection_dims)(x)
     return projected_embeddings
 
-# class GraphEncoder(nn.Module):
-#     def __init__(self, num_features, projection_dims, num_projection_layers, dropout_rate):
-#         super(GraphEncoder, self).__init__()
-#         self.num_projection_layers = num_projection_layers
-#         self.projection_dims = projection_dims
-#         self.dropout_rate = dropout_rate
-#         self.gnn = GCNConv(num_features, projection_dims)
-#         self.projections = nn.Sequential(
-#             *[nn.Sequential(
-#                 nn.Linear(projection_dims, projection_dims),
-#                 nn.ReLU(),
-#                 nn.Dropout(dropout_rate)
-#             ) for _ in range(num_projection_layers)]
-#         )
-
-#     def forward(self, x, edge_index, batch):
-#         x = self.gnn(x, edge_index)
-#         x = global_mean_pool(x, batch)
-#         x = self.projections(x)
-#         x = project_embeddings(x['pooled_output'], self.num_projection_layers, self.projection_dims, self.dropout_rate)
-        # return x
-
 class GraphEncoder(nn.Module):
     def __init__(self, num_projection_layers, projection_dims, dropout_rate, pretrained=True):
-        super(TextEncoder, self).__init__()
-        self.bert_preprocess = torch.hub.load('huggingface/pytorch-transformers', 'model', 'bert-base-uncased')
+        super(GraphEncoder, self).__init__()
         self.bert = torch.hub.load('huggingface/pytorch-transformers', 'model', 'bert-base-uncased')
+        self.tokenizer = torch.hub.load('huggingface/pytorch-transformers', 'tokenizer', 'bert-base-uncased')
         self.num_projection_layers = num_projection_layers
         self.projection_dims = projection_dims
         self.dropout_rate = dropout_rate
-        self.project_embeddings = project_embeddings
 
     def forward(self, x):
-        x = self.bert_preprocess(x)
-        x = self.bert(x)
-        x = project_embeddings(x['pooled_output'], self.num_projection_layers, self.projection_dims, self.dropout_rate)
+        # Tiền xử lý dữ liệu văn bản sử dụng tokenizer của BERT
+        #inputs = self.tokenizer(x, return_tensors='pt', padding=True, truncation=True)
+        outputs = self.bert(x)
+        pooled_output = outputs['pooler_output']
+        x = project_embeddings(pooled_output, self.num_projection_layers, self.projection_dims, self.dropout_rate)
         return x
     
 class TextEncoder(nn.Module):
     def __init__(self, num_projection_layers, projection_dims, dropout_rate, pretrained=True):
         super(TextEncoder, self).__init__()
-        self.bert_preprocess = torch.hub.load('huggingface/pytorch-transformers', 'model', 'bert-base-uncased')
         self.bert = torch.hub.load('huggingface/pytorch-transformers', 'model', 'bert-base-uncased')
+        self.tokenizer = torch.hub.load('huggingface/pytorch-transformers', 'tokenizer', 'bert-base-uncased')
         self.num_projection_layers = num_projection_layers
         self.projection_dims = projection_dims
         self.dropout_rate = dropout_rate
-        self.project_embeddings = project_embeddings
 
     def forward(self, x):
-        x = self.bert_preprocess(x)
-        x = self.bert(x)
-        x = project_embeddings(x['pooled_output'], self.num_projection_layers, self.projection_dims, self.dropout_rate)
+        # Tiền xử lý dữ liệu văn bản sử dụng tokenizer của BERT
+        #inputs = self.tokenizer(x, return_tensors='pt', padding=True, truncation=True)
+        outputs = self.bert(x)
+        pooled_output = outputs['pooler_output']
+        x = project_embeddings(pooled_output, self.num_projection_layers, self.projection_dims, self.dropout_rate)
         return x
+
 
 class DualEncoder(nn.Module):
     def __init__(self, text_encoder, graph_encoder, temperature=1.0):
@@ -77,9 +59,8 @@ class DualEncoder(nn.Module):
         self.softmax = nn.Softmax(dim=-1)
 
     def forward(self, text_data, graph_data):
-        print(text_data)
         caption_embeddings = self.text_encoder(text_data)
-        graph_embeddings = self.graph_encoder(graph_data.x, graph_data.edge_index, graph_data.batch)
+        graph_embeddings = self.graph_encoder(graph_data)
         return caption_embeddings, graph_embeddings
 
     def compute_loss(self, caption_embeddings, graph_embeddings):
@@ -99,7 +80,7 @@ def build_model():
         dropout_rate=0.1)
     
     graph_encoder = GraphEncoder(
-        num_features=300,
+        # num_features=300,
         num_projection_layers=1, 
         projection_dims=256, 
         dropout_rate=0.1)

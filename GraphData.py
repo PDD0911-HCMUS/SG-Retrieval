@@ -5,9 +5,11 @@ from torch.utils.data import Dataset
 import os
 import json
 import ConfigArgs as args
+from transformers import BertTokenizer
+from torch.nn.utils.rnn import pad_sequence
 
-batch_size = 128
-data_root = 'Datasets/Incidents/anno/'
+# Tạo một instance của BertTokenizer
+tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
 class LoadData(Dataset):
     def __init__(self, data):
@@ -34,18 +36,25 @@ def get_file(file_path):
 
 def transform_sg_to_encoder(data_item):
     assert "subject" and "object" and "relation" in data_item.keys(), "Please use correct format. "
-    node_to_index = defaultdict(lambda: len(node_to_index))  # Tự động gán chỉ số mới cho mỗi node mới
-    # Tạo edge index
-    edge_index = []
     sg_to_str = " "
     for sub, obj, rel in zip(data_item["subject"], data_item["object"], data_item['relation']):
-        edge_index.append([node_to_index[sub], node_to_index[obj]])
-        sg_to_str = sg_to_str + sub + ' ' + rel + ' ' + obj + ','
-    num_nodes = len(node_to_index)
-    node_features = torch.eye(num_nodes)
-    scene_graph_data = Data(x=node_features, edge_index=edge_index)
-    query = [data_item['query']]
-    return scene_graph_data, query
+        sg_to_str = sg_to_str + sub + ' ' + rel + ' ' + obj + ', '
+    
+    scene_graph_data = sg_to_str
+    query = data_item['query']
+    input_sg = tokenizer(scene_graph_data, return_tensors='pt', padding=True, truncation=True, max_length=args.max_length)
+    input_qu = tokenizer(query, return_tensors='pt', padding=True, truncation=True, max_length=args.max_length)
+
+    return input_sg['input_ids'].squeeze(0), input_qu['input_ids'].squeeze(0)
+
+def collate_fn(batch):
+    input_ids1, input_ids2 = zip(*batch)
+
+    padded_input_ids1 = pad_sequence(input_ids1, batch_first=True, padding_value=0)
+
+    padded_input_ids2 = pad_sequence(input_ids2, batch_first=True, padding_value=0)
+
+    return padded_input_ids1, padded_input_ids2
 
 def build_data(mode):
     if mode == 'train':
@@ -58,5 +67,7 @@ def build_data(mode):
     print(f'Loaded {len_data} from {mode} ')
     return dataset
 
-dataset_train = build_data('train')
-dataset_valid = build_data('val')
+# dataset_train = build_data('train')
+# dataset_valid = build_data('val')
+
+# print(dataset_train.__getitem__(100))
