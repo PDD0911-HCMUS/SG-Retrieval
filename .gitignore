@@ -6,3 +6,5 @@ Datasets
 *.pt
 *.zip
 *.txt
+
+*.pth
