@@ -1,5 +1,5 @@
 import psycopg2
-from RelTRnBert import build_model
+from .RelTRnBert import build_model
 import torch.nn.functional as F
 import os
 import torch
@@ -34,8 +34,6 @@ dual_model_encoder.reltr.load_state_dict(torch.load('ckpt/reltr_weights_63.pth',
 dual_model_encoder.bert.load_state_dict(torch.load('ckpt/bert_weights_63.pth', map_location=device))
 dual_model_encoder.reltr.eval()
 dual_model_encoder.bert.eval()
-
-
 
 def create_database():
     image_name = []
@@ -163,8 +161,8 @@ def find_matches(query, k=9, normalize=True):
     return indices, file_image
 
 
-if __name__ == "__main__":
-    txt = "The Similar Function Loss will be based on Dot product similarity"
+# if __name__ == "__main__":
+#     txt = "The Similar Function Loss will be based on Dot product similarity"
 
-    indices, _ = find_matches(txt, k=9, normalize=True)
-    pass
+#     indices, _ = find_matches(txt, k=9, normalize=True)
+#     pass
