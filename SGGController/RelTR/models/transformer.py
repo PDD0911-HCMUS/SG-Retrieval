@@ -211,16 +211,16 @@ class TransformerDecoderLayer(nn.Module):
         self.cross_attn_sub = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
         self.dropout1_sub = nn.Dropout(dropout)
         self.norm1_sub = nn.LayerNorm(d_model)
-        self.cross_sub_entity = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
-        self.dropout2_sub = nn.Dropout(dropout)
-        self.norm2_sub = nn.LayerNorm(d_model)
+        # self.cross_sub_entity = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
+        # self.dropout2_sub = nn.Dropout(dropout)
+        # self.norm2_sub = nn.LayerNorm(d_model)
 
         self.cross_attn_obj = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
         self.dropout1_obj = nn.Dropout(dropout)
         self.norm1_obj = nn.LayerNorm(d_model)
-        self.cross_obj_entity = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
-        self.dropout2_obj = nn.Dropout(dropout)
-        self.norm2_obj = nn.LayerNorm(d_model)
+        # self.cross_obj_entity = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
+        # self.dropout2_obj = nn.Dropout(dropout)
+        # self.norm2_obj = nn.LayerNorm(d_model)
 
         # ffn
         self.linear1_entity = nn.Linear(d_model, dim_feedforward)
@@ -229,33 +229,33 @@ class TransformerDecoderLayer(nn.Module):
         self.dropout4_entity = nn.Dropout(dropout)
         self.norm3_entity = nn.LayerNorm(d_model)
 
-        self.linear1_sub = nn.Linear(d_model, dim_feedforward)
-        self.dropout3_sub = nn.Dropout(dropout)
-        self.linear2_sub = nn.Linear(dim_feedforward, d_model)
-        self.dropout4_sub = nn.Dropout(dropout)
-        self.norm3_sub = nn.LayerNorm(d_model)
+        # self.linear1_sub = nn.Linear(d_model, dim_feedforward)
+        # self.dropout3_sub = nn.Dropout(dropout)
+        # self.linear2_sub = nn.Linear(dim_feedforward, d_model)
+        # self.dropout4_sub = nn.Dropout(dropout)
+        # self.norm3_sub = nn.LayerNorm(d_model)
 
-        self.linear1_obj = nn.Linear(d_model, dim_feedforward)
-        self.dropout3_obj = nn.Dropout(dropout)
-        self.linear2_obj = nn.Linear(dim_feedforward, d_model)
-        self.dropout4_obj = nn.Dropout(dropout)
-        self.norm3_obj = nn.LayerNorm(d_model)
+        # self.linear1_obj = nn.Linear(d_model, dim_feedforward)
+        # self.dropout3_obj = nn.Dropout(dropout)
+        # self.linear2_obj = nn.Linear(dim_feedforward, d_model)
+        # self.dropout4_obj = nn.Dropout(dropout)
+        # self.norm3_obj = nn.LayerNorm(d_model)
 
     def forward_ffn_entity(self, tgt):
         tgt2 = self.linear2_entity(self.dropout3_entity(self.activation(self.linear1_entity(tgt))))
         tgt = tgt + self.dropout4_entity(tgt2)
         tgt = self.norm3_entity(tgt)
         return tgt
-    def forward_ffn_sub(self, tgt):
-        tgt2 = self.linear2_sub(self.dropout3_sub(self.activation(self.linear1_sub(tgt))))
-        tgt = tgt + self.dropout4_sub(tgt2)
-        tgt = self.norm3_sub(tgt)
-        return tgt
-    def forward_ffn_obj(self, tgt):
-        tgt2 = self.linear2_obj(self.dropout3_obj(self.activation(self.linear1_obj(tgt))))
-        tgt = tgt + self.dropout4_obj(tgt2)
-        tgt = self.norm3_obj(tgt)
-        return tgt
+    # def forward_ffn_sub(self, tgt):
+    #     tgt2 = self.linear2_sub(self.dropout3_sub(self.activation(self.linear1_sub(tgt))))
+    #     tgt = tgt + self.dropout4_sub(tgt2)
+    #     tgt = self.norm3_sub(tgt)
+    #     return tgt
+    # def forward_ffn_obj(self, tgt):
+    #     tgt2 = self.linear2_obj(self.dropout3_obj(self.activation(self.linear1_obj(tgt))))
+    #     tgt = tgt + self.dropout4_obj(tgt2)
+    #     tgt = self.norm3_obj(tgt)
+    #     return tgt
 
     def with_pos_embed(self, tensor, pos: Optional[Tensor]):
         return tensor if pos is None else tensor + pos
@@ -305,12 +305,12 @@ class TransformerDecoderLayer(nn.Module):
         tgt_sub = tgt_sub + self.dropout1_sub(tgt2_sub)
         tgt_sub = self.norm1_sub(tgt_sub)
 
-        # subject branch - decoupled entity attention
-        tgt2_sub = self.cross_sub_entity(query=self.with_pos_embed(tgt_sub, triplet_pos),
-                                         key=tgt_entity, value=tgt_entity)[0]
-        tgt_sub = tgt_sub + self.dropout2_sub(tgt2_sub)
-        tgt_sub = self.norm2_sub(tgt_sub)
-        tgt_sub = self.forward_ffn_sub(tgt_sub)
+        # # subject branch - decoupled entity attention
+        # tgt2_sub = self.cross_sub_entity(query=self.with_pos_embed(tgt_sub, triplet_pos),
+        #                                  key=tgt_entity, value=tgt_entity)[0]
+        # tgt_sub = tgt_sub + self.dropout2_sub(tgt2_sub)
+        # tgt_sub = self.norm2_sub(tgt_sub)
+        # tgt_sub = self.forward_ffn_sub(tgt_sub)
 
         # object branch - decoupled visual attention
         tgt2_obj, obj_maps = self.cross_attn_obj(query=self.with_pos_embed(tgt_obj, triplet_pos),
@@ -320,12 +320,12 @@ class TransformerDecoderLayer(nn.Module):
         tgt_obj = tgt_obj + self.dropout1_obj(tgt2_obj)
         tgt_obj = self.norm1_obj(tgt_obj)
 
-        # object branch - decoupled entity attention
-        tgt2_obj = self.cross_obj_entity(query=self.with_pos_embed(tgt_obj, triplet_pos),
-                                         key=tgt_entity, value=tgt_entity)[0]
-        tgt_obj = tgt_obj + self.dropout2_obj(tgt2_obj)
-        tgt_obj = self.norm2_obj(tgt_obj)
-        tgt_obj = self.forward_ffn_obj(tgt_obj)
+        # # object branch - decoupled entity attention
+        # tgt2_obj = self.cross_obj_entity(query=self.with_pos_embed(tgt_obj, triplet_pos),
+        #                                  key=tgt_entity, value=tgt_entity)[0]
+        # tgt_obj = tgt_obj + self.dropout2_obj(tgt2_obj)
+        # tgt_obj = self.norm2_obj(tgt_obj)
+        # tgt_obj = self.forward_ffn_obj(tgt_obj)
 
         tgt_triplet = torch.cat((tgt_sub, tgt_obj), dim=-1)
         return tgt_entity, tgt_triplet, sub_maps, obj_maps

@@ -2,7 +2,7 @@
 
 import ConfigArgs as args
 import os
-from SGRetrievalController.FindMatcherController import find_matches
+# from SGRetrievalController.FindMatcherController import find_matches
 from SGGController.ReltrController import sgg_controller
 import flask
 from flask import Flask, send_from_directory, jsonify, request
@@ -51,18 +51,18 @@ def upload_file():
             Data = res
         )
 
-@app.route('/rev/<user_input>', methods = ['GET'])
-@cross_origin()
-def STS_filename_from_embed(user_input):
-    print(user_input)
-    query = user_input
-    indices, image_name = find_matches(query, k=9, normalize=True)
-    selected_files = [image_name[i] for i in indices[0].tolist()]
-    return jsonify(
-        Data = selected_files
-        # Status = 200, 
-        # Msg = 'OK'
-        ) 
+# @app.route('/rev/<user_input>', methods = ['GET'])
+# @cross_origin()
+# def STS_filename_from_embed(user_input):
+#     print(user_input)
+#     query = user_input
+#     indices, image_name = find_matches(query, k=9, normalize=True)
+#     selected_files = [image_name[i] for i in indices[0].tolist()]
+#     return jsonify(
+#         Data = selected_files
+#         # Status = 200, 
+#         # Msg = 'OK'
+#         ) 
     
 
 if __name__ == "__main__":

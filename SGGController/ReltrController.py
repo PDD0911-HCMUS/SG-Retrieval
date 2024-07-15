@@ -6,6 +6,7 @@ from .RelTR.models.backbone import Backbone, Joiner
 from .RelTR.models.position_encoding import PositionEmbeddingSine
 from .RelTR.models.transformer import Transformer
 from .RelTR.models.reltr import RelTR
+from .RelTR.models.llm import MaskedLang
 import ConfigArgs as args
 from pathlib import Path
 import networkx as nx
@@ -19,7 +20,7 @@ def create_model():
     backbone = Backbone('resnet50', False, False, False)
     backbone = Joiner(backbone, position_embedding)
     backbone.num_channels = 2048
-
+    llm = MaskedLang(hidden_size=256, pretrained='bert-base-uncased')
     transformer = Transformer(d_model=256, dropout=0.1, nhead=8, 
                             dim_feedforward=2048,
                             num_encoder_layers=6,
@@ -27,15 +28,12 @@ def create_model():
                             normalize_before=False,
                             return_intermediate_dec=True)
 
-    model = RelTR(backbone, transformer, num_classes=151, num_rel_classes = 51,
+    model = RelTR(backbone, transformer, llm, num_classes=151, num_rel_classes = 51,
                 num_entities=100, num_triplets=200)
 
     # The checkpoint is pretrained on Visual Genome
-    ckpt = torch.hub.load_state_dict_from_url(
-        url='https://cloud.tnt.uni-hannover.de/index.php/s/PB8xTKspKZF7fyK/download/checkpoint0149.pth',
-        map_location='cpu', check_hash=True)
+    ckpt = torch.load('ckpt/checkpoint0195.pth', map_location='cpu')
     model.load_state_dict(ckpt['model'])
-
     model.eval()
 
     return model
@@ -140,7 +138,7 @@ def sgg_controller(fileName):
     img = transform(im).unsqueeze(0)
     # propagate through the model
     model = create_model()
-    outputs, hs_t = model(img)
+    outputs = model(img, None)
 
     # keep only predictions with >0.3 confidence
     probas = outputs['rel_logits'].softmax(-1)[0, :, :-1]
@@ -173,7 +171,7 @@ def sgg_controller(fileName):
 
     with torch.no_grad():
         # propagate through the model
-        outputs = model(img)
+        outputs = model(img, None)
 
         for hook in hooks:
             hook.remove()
