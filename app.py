@@ -3,7 +3,8 @@
 import ConfigArgs as args
 import os
 # from SGRetrievalController.FindMatcherController import find_matches
-from SGGController.ReltrController import sgg_controller
+# from SGGController.ReltrController import sgg_controller
+from SGGControllerRelTR.RelTRController import sgg_controller
 import flask
 from flask import Flask, send_from_directory, jsonify, request
 from flask_cors import CORS, cross_origin

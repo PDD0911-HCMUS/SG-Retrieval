@@ -6,5 +6,5 @@ Datasets
 *.pt
 *.zip
 *.txt
-
+**/fashion-data/
 *.pth

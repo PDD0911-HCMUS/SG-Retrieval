@@ -4,18 +4,17 @@
 import torch
 import torch.nn.functional as F
 from torch import nn
-from SGGController.RelTR.util import box_ops
-from SGGController.RelTR.util.misc import (NestedTensor, nested_tensor_from_tensor_list,
+from SGGControllerRelTR.util import box_ops
+from SGGControllerRelTR.util.misc import (NestedTensor, nested_tensor_from_tensor_list,
                        accuracy, get_world_size, interpolate,
                        is_dist_avail_and_initialized)
 from .backbone import build_backbone
 from .matcher import build_matcher
 from .transformer import build_transformer
-from .llm import build_llm
 
 class RelTR(nn.Module):
     """ RelTR: Relation Transformer for Scene Graph Generation """
-    def __init__(self, backbone, transformer, llm, num_classes, num_rel_classes, num_entities, num_triplets, aux_loss=False, matcher=None):
+    def __init__(self, backbone, transformer, num_classes, num_rel_classes, num_entities, num_triplets, aux_loss=False, matcher=None):
         """ Initializes the model.
         Parameters:
             backbone: torch module of the backbone to be used. See backbone.py
@@ -28,7 +27,6 @@ class RelTR(nn.Module):
         super().__init__()
         self.num_entities = num_entities
         self.transformer = transformer
-        self.llm = llm
         hidden_dim = transformer.d_model
         self.hidden_dim = hidden_dim
 
@@ -67,7 +65,7 @@ class RelTR(nn.Module):
         self.obj_bbox_embed = MLP(hidden_dim, hidden_dim, 4, 3)
 
 
-    def forward(self, samples: NestedTensor, triplets_txt_promt):
+    def forward(self, samples: NestedTensor):
         """ The forward expects a NestedTensor, which consists of:
                - samples.tensor: batched images, of shape [batch_size x 3 x H x W]
                - samples.mask: a binary mask of shape [batch_size x H x W], containing 1 on padded pixels
@@ -86,15 +84,12 @@ class RelTR(nn.Module):
                - "aux_outputs": Optional, only returned when auxilary losses are activated. It is a list of
                                 dictionnaries containing the two above keys for each decoder layer.
         """
-        
+
         if isinstance(samples, (list, torch.Tensor)):
             samples = nested_tensor_from_tensor_list(samples)
         features, pos = self.backbone(samples)
 
         src, mask = features[-1].decompose()
-
-        out_src = self.input_proj(src)
-        out_src = out_src.flatten(2).permute(2, 0, 1)
         assert mask is not None
         hs, hs_t, so_masks, _ = self.transformer(self.input_proj(src), mask, self.entity_embed.weight,
                                                  self.triplet_embed.weight, pos[-1], self.so_embed.weight)
@@ -103,9 +98,6 @@ class RelTR(nn.Module):
         so_masks = self.so_mask_fc(so_masks)
 
         hs_sub, hs_obj = torch.split(hs_t, self.hidden_dim, dim=-1)
-
-        if(triplets_txt_promt is not None):
-            hs_sub, hs_obj = self.llm(hs_sub, hs_obj, triplets_txt_promt)
 
         outputs_class = self.entity_class_embed(hs)
         outputs_coord = self.entity_bbox_embed(hs).sigmoid()
@@ -125,7 +117,7 @@ class RelTR(nn.Module):
         if self.aux_loss:
             out['aux_outputs'] = self._set_aux_loss(outputs_class, outputs_coord, outputs_class_sub, outputs_coord_sub,
                                                     outputs_class_obj, outputs_coord_obj, outputs_class_rel)
-        return out, out_src
+        return out
 
     @torch.jit.unused
     def _set_aux_loss(self, outputs_class, outputs_coord, outputs_class_sub, outputs_coord_sub,
@@ -391,12 +383,10 @@ def build(args):
     backbone = build_backbone(args)
 
     transformer = build_transformer(args)
-    llm = build_llm()
     matcher = build_matcher(args)
     model = RelTR(
         backbone,
         transformer,
-        llm,
         num_classes=num_classes,
         num_rel_classes = num_rel_classes,
         num_entities=args.num_entities,
