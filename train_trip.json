@@ -1,0 +1,140 @@
+[
+    {
+        "image_id": "498334.jpg",
+        "triplet": [
+            "boy wearing shirt",
+            "boy has hair",
+            "shirt on boy",
+            "logo on shirt",
+            "shirt has logo",
+            "boy holding plate",
+            "boy has hand",
+            "hand of boy",
+            "head of boy",
+            "man wearing pant"
+        ]
+    },
+    {
+        "image_id": "498335.jpg",
+        "triplet": [
+            "clock on pole",
+            "hand on clock",
+            "clock has face",
+            "window on building",
+            "flower in pot",
+            "sign on pole",
+            "tree on sidewalk",
+            "hand on clock"
+        ]
+    },
+    {
+        "image_id": "498336.jpg",
+        "triplet": [
+            "light on truck",
+            "tire on truck",
+            "light on truck",
+            "window on truck",
+            "tire on truck",
+            "man on truck",
+            "window on truck",
+            "window on truck",
+            "man wearing shirt"
+        ]
+    },
+    {
+        "image_id": "498337.jpg",
+        "triplet": [
+            "sign on building",
+            "window on building",
+            "sign on building",
+            "sign on building",
+            "cow has tail",
+            "door on building",
+            "tree behind building"
+        ]
+    },
+    {
+        "image_id": "498338.jpg",
+        "triplet": [
+            "woman wearing glass",
+            "woman has hair",
+            "woman wearing tie",
+            "woman wearing glass",
+            "woman has hair",
+            "man wearing glass",
+            "woman has hair",
+            "woman wearing shirt",
+            "woman has hair",
+            "woman wearing shirt"
+        ]
+    },
+    {
+        "image_id": "498339.jpg",
+        "triplet": [
+            "glass on table",
+            "glass on table",
+            "woman wearing shirt",
+            "man wearing shirt",
+            "woman has hair",
+            "man wearing shirt",
+            "man wearing shirt",
+            "woman sitting on chair",
+            "woman sitting on chair",
+            "man in chair"
+        ]
+    },
+    {
+        "image_id": "498340.jpg",
+        "triplet": [
+            "window on truck",
+            "tire on truck",
+            "wheel on truck",
+            "tire on truck",
+            "man near truck",
+            "truck has wheel",
+            "truck has wheel",
+            "tire on truck"
+        ]
+    },
+    {
+        "image_id": "498341.jpg",
+        "triplet": [
+            "woman wearing glove",
+            "woman wearing helmet",
+            "woman wearing jacket",
+            "woman wearing glove",
+            "woman in snow",
+            "glove on hand",
+            "helmet on head",
+            "woman wearing pant",
+            "leg of woman",
+            "glove on hand"
+        ]
+    },
+    {
+        "image_id": "498342.jpg",
+        "triplet": [
+            "girl wearing shirt",
+            "boy holding kite",
+            "girl wearing short",
+            "boy wearing shirt",
+            "girl has hair",
+            "boy holding kite"
+        ]
+    },
+    {
+        "image_id": "498345.jpg",
+        "triplet": [
+            "cup on table",
+            "woman wearing glass",
+            "man wearing tie",
+            "man wearing tie",
+            "woman wearing coat",
+            "man wearing jacket",
+            "man wearing jean",
+            "woman has hair",
+            "man wearing tie",
+            "basket on table"
+        ]
+    }
+]

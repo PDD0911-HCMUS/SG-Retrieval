@@ -9,6 +9,8 @@ from .models.reltr import RelTR
 import ConfigArgs as args
 from pathlib import Path
 import networkx as nx
+import json
+from tqdm import tqdm
 
 CLASSES = args.CLASSES
 
@@ -148,6 +150,78 @@ def draw_detail_triplet(im, indices,
     plt.close(fig)
     return
 
+def extract_triplet(mode):
+    if(mode == 'train'):
+        annfile = 'Datasets/VisualGenome/train.json'
+        with open(annfile) as f:
+            anno = json.load(f)
+    if(mode == 'val'):
+        annfile = 'Datasets/VisualGenome/val.json'
+        with open(annfile) as f:
+            anno = json.load(f)
+
+    model = create_model()
+    data_jsons = []
+    for item in tqdm(anno['images'][:]):
+        try:
+            im = Image.open('Datasets/VisualGenome/VG_100K/' + item['file_name'])
+            img = transform(im).unsqueeze(0)
+            outputs = model(img)
+
+            # keep only predictions with >0.3 confidence
+            probas = outputs['rel_logits'].softmax(-1)[0, :, :-1]
+            probas_sub = outputs['sub_logits'].softmax(-1)[0, :, :-1]
+            probas_obj = outputs['obj_logits'].softmax(-1)[0, :, :-1]
+            keep = torch.logical_and(probas.max(-1).values > 0.3, torch.logical_and(probas_sub.max(-1).values > 0.3,
+                                                                                    probas_obj.max(-1).values > 0.3))
+            topk = 10 # display up to 10 images
+            keep_queries = torch.nonzero(keep, as_tuple=True)[0]
+            indices = torch.argsort(-probas[keep_queries].max(-1)[0] * probas_sub[keep_queries].max(-1)[0] * probas_obj[keep_queries].max(-1)[0])[:topk]
+            keep_queries = keep_queries[indices]
+
+            # save the attention weights
+            conv_features, dec_attn_weights_sub, dec_attn_weights_obj = [], [], []
+            hooks = [
+                model.backbone[-2].register_forward_hook(
+                    lambda self, input, output: conv_features.append(output)
+                ),
+                model.transformer.decoder.layers[-1].cross_attn_sub.register_forward_hook(
+                    lambda self, input, output: dec_attn_weights_sub.append(output[1])
+                ),
+                model.transformer.decoder.layers[-1].cross_attn_obj.register_forward_hook(
+                    lambda self, input, output: dec_attn_weights_obj.append(output[1])
+                )]
+
+            with torch.no_grad():
+                outputs = model(img)
+
+                for hook in hooks:
+                    hook.remove()
+                # don't need the list anymore
+                conv_features = conv_features[0]
+                dec_attn_weights_sub = dec_attn_weights_sub[0]
+                dec_attn_weights_obj = dec_attn_weights_obj[0]
+                sList, oList, rList, t = [], [], [], []
+                
+                for idx in keep_queries:
+                    sList.append(CLASSES[probas_sub[idx].argmax()])
+                    oList.append(CLASSES[probas_obj[idx].argmax()])
+                    rList.append(REL_CLASSES[probas[idx].argmax()])
+                    txt = CLASSES[probas_sub[idx].argmax()] + ' ' + REL_CLASSES[probas[idx].argmax()] + ' ' + CLASSES[probas_obj[idx].argmax()]
+                    t.append(txt)
+                
+                data_json = {
+                    "image_id": item['file_name'],
+                    "triplet": t
+                }
+
+                data_jsons.append(data_json)
+        except:
+            continue
+
+    with open(mode + '_trip.json', 'w') as f:
+        json.dump(data_jsons, f)
+    return data_jsons
 def sgg_controller(fileName):
     file_name = args.upload + fileName
     path = Path(file_name.replace('.jpg', ''))
@@ -228,3 +302,5 @@ def sgg_controller(fileName):
 
 # filename = '20240325153141.jpg'
 # sgg_controller(filename)
+
+extract_triplet('train')
