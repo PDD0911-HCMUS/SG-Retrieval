@@ -297,10 +297,16 @@ def sgg_controller(fileName):
         draw_detail_triplet(im, indices, keep_queries, sub_bboxes_scaled, obj_bboxes_scaled, probas_sub, probas, probas_obj, out_triplet)
         draw_sg(sList,oList,rList, out_res_grp)
 
-    return [args.prefix_name+fileName, args.prefix_graph+fileName, args.prefix_triplet+fileName, fileName, t]
+    # return [args.prefix_name+fileName, args.prefix_graph+fileName, args.prefix_triplet+fileName, fileName, t]
 
+    return {
+        'objectDet': args.prefix_name+fileName,
+        'graphDet': args.prefix_graph+fileName,
+        'tripletDet': args.prefix_triplet+fileName,
+        'triplets': t
+    }
 
 # filename = '20240325153141.jpg'
 # sgg_controller(filename)
 
-extract_triplet('train')
+# extract_triplet('train')

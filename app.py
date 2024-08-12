@@ -5,6 +5,7 @@ import os
 # from SGRetrievalController.FindMatcherController import find_matches
 # from SGGController.ReltrController import sgg_controller
 from SGGControllerRelTR.RelTRController import sgg_controller
+from FashionpediaController.inference import find_matcher
 import flask
 from flask import Flask, send_from_directory, jsonify, request
 from flask_cors import CORS, cross_origin
@@ -52,18 +53,19 @@ def upload_file():
             Data = res
         )
 
-# @app.route('/rev/<user_input>', methods = ['GET'])
-# @cross_origin()
-# def STS_filename_from_embed(user_input):
-#     print(user_input)
-#     query = user_input
-#     indices, image_name = find_matches(query, k=9, normalize=True)
-#     selected_files = [image_name[i] for i in indices[0].tolist()]
-#     return jsonify(
-#         Data = selected_files
-#         # Status = 200, 
-#         # Msg = 'OK'
-#         ) 
+@app.route('/rev', methods = ['POST'])
+@cross_origin()
+def STS_filename_from_embed():
+    data = request.get_json()
+    print(data)
+    query = data['triplet']
+    image_name = find_matcher(query, top_k=9)
+    print(image_name)
+    return jsonify(
+        Data = image_name
+        # Status = 200, 
+        # Msg = 'OK'
+        ) 
     
 
 if __name__ == "__main__":
