@@ -1,5 +1,5 @@
 import torch
-from torch_geometric.data import Data
+# from torch_geometric.data import Data
 from collections import defaultdict
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
@@ -12,7 +12,7 @@ from pathlib import Path
 from PIL import Image
 import torchvision.transforms as T
 from RelTR.util.misc import nested_tensor_from_tensor_list
-
+import random
 
 class ConvertGrayToRGB(object):
     def __call__(self, image):
@@ -52,12 +52,20 @@ class LoadData(Dataset):
         if self.transform:
             image = self.transform(image)
 
-        return image, queries
+        # Create negative sample
+        neg_index = random.randint(0, len(self.data) - 1)
+        while neg_index == index:  # Ensure it's not the same as the positive sample
+            neg_index = random.randint(0, len(self.data) - 1)
+        neg_data_item = self.data[neg_index]
+        neg_queries = ', '.join(neg_data_item['queries'])
+        neg_queries_encoded = transform_sg_to_encoder(neg_queries)
+
+        return image, queries, neg_queries_encoded
 
 def get_file(file_path):
     file_data = open(file_path)
     data_item = json.load(file_data)
-    return data_item[:10]
+    return data_item
 
 def transform_sg_to_encoder(txt):
     encoded_dict = tokenizer.encode_plus(
@@ -89,19 +97,20 @@ def build_data(mode):
     print(f'Loaded {len_data} from {mode} ')
     return dataset
 
-# dataset_train = build_data('train')
-# dataset_valid = build_data('val')
+dataset_train = build_data('train')
+dataset_valid = build_data('val')
 
-# # dataset_train.__getitem__(100)
+dataset_train.__getitem__(100)
 
-# sampler_train = torch.utils.data.RandomSampler(dataset_train)
-# sampler_val = torch.utils.data.SequentialSampler(dataset_valid)
-# batch_sampler_train = torch.utils.data.BatchSampler(sampler_train, args.batch_size, drop_last=True)
+sampler_train = torch.utils.data.RandomSampler(dataset_train)
+sampler_val = torch.utils.data.SequentialSampler(dataset_valid)
+batch_sampler_train = torch.utils.data.BatchSampler(sampler_train, args.batch_size, drop_last=True)
 
-# data_loader_train = DataLoader(dataset_train, batch_sampler=batch_sampler_train, num_workers=args.num_workers, collate_fn=collate_fn)
-# data_loader_valid = DataLoader(dataset_valid, args.batch_size, sampler=sampler_val, num_workers=args.num_workers, collate_fn=collate_fn)
+data_loader_train = DataLoader(dataset_train, batch_sampler=batch_sampler_train, num_workers=args.num_workers, collate_fn=collate_fn)
+data_loader_valid = DataLoader(dataset_valid, args.batch_size, sampler=sampler_val, num_workers=args.num_workers, collate_fn=collate_fn)
 
-# for graph_data, text_data in data_loader_train:
-#     # print(graph_data.size())
-#     print(text_data.size())
-#     break
+for graph_data, text_data_1, text_data_2 in data_loader_train:
+    # print(graph_data.size())
+    print(text_data_1.size())
+    print(text_data_2.size())
+    break

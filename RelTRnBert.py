@@ -4,22 +4,24 @@ import torch.nn.functional as F
 import torchvision.transforms as T
 
 from PIL import Image
-from SGGController.RelTR.models.backbone import Backbone, Joiner
-from SGGController.RelTR.models.position_encoding import PositionEmbeddingSine
-from SGGController.RelTR.models.transformer import Transformer
-from SGGController.RelTR.models.reltr import RelTR
-
+from RelTR.models.backbone import Backbone, Joiner
+from RelTR.models.position_encoding import PositionEmbeddingSine
+from RelTR.models.transformer import Transformer
+from RelTR.models.reltr import RelTR
+import ConfigArgs as args
 import os
 import json
 
 def project_embeddings_2(embeddings, num_projection_layers, projection_dims, dropout_rate):
-    projected_embeddings = nn.Linear(embeddings.size(1), projection_dims)(embeddings)
+    projection_layer = nn.Linear(embeddings.size(1), projection_dims).to(args.device)
+    norm_layer = nn.LayerNorm(projection_dims).to(args.device)
+    projected_embeddings = projection_layer(embeddings)
     for _ in range(num_projection_layers):
         x = F.relu(projected_embeddings)
-        x = nn.Linear(projection_dims, projection_dims)(x)
+        x = nn.Linear(projection_dims, projection_dims).to(args.device)(x)
         x = F.dropout(x, p=dropout_rate)
         x = projected_embeddings + x
-        projected_embeddings = nn.LayerNorm(projection_dims)(x)
+        projected_embeddings = norm_layer(x)
     return projected_embeddings
 
 class ProjectEmbeddings(nn.Module):
@@ -58,7 +60,7 @@ class ProjectEmbeddings(nn.Module):
 class TextEncoder(nn.Module):
     def __init__(self, input_dims, num_projection_layers, projection_dims, dropout_rate):
         super(TextEncoder, self).__init__()
-        self.bert = torch.hub.load('huggingface/pytorch-transformers', 'model', 'bert-base-uncased')
+        self.bert = torch.hub.load('huggingface/pytorch-transformers', 'model', 'bert-base-uncased').to(args.device)
         self.tokenizer = torch.hub.load('huggingface/pytorch-transformers', 'tokenizer', 'bert-base-uncased')
 
         self.num_projection_layers = num_projection_layers

@@ -1,23 +1,26 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import ConfigArgs as args
 # from torch_geometric.nn import GCNConv, global_mean_pool
 # from transformers import BertModel
 
 def project_embeddings(embeddings, num_projection_layers, projection_dims, dropout_rate):
-    projected_embeddings = nn.Linear(embeddings.size(1), projection_dims)(embeddings)
+    projection_layer = nn.Linear(embeddings.size(1), projection_dims).to(args.device)
+    norm_layer = nn.LayerNorm(projection_dims).to(args.device)
+    projected_embeddings = projection_layer(embeddings)
     for _ in range(num_projection_layers):
         x = F.relu(projected_embeddings)
-        x = nn.Linear(projection_dims, projection_dims)(x)
+        x = nn.Linear(projection_dims, projection_dims).to(args.device)(x)
         x = F.dropout(x, p=dropout_rate)
         x = projected_embeddings + x
-        projected_embeddings = nn.LayerNorm(projection_dims)(x)
+        projected_embeddings = norm_layer(x)
     return projected_embeddings
 
 class GraphEncoder(nn.Module):
     def __init__(self, num_projection_layers, projection_dims, dropout_rate, pretrained=True):
         super(GraphEncoder, self).__init__()
-        self.bert = torch.hub.load('huggingface/pytorch-transformers', 'model', 'bert-base-uncased')
+        self.bert = torch.hub.load('huggingface/pytorch-transformers', 'model', 'bert-base-uncased').to(args.device)
         self.tokenizer = torch.hub.load('huggingface/pytorch-transformers', 'tokenizer', 'bert-base-uncased')
         self.num_projection_layers = num_projection_layers
         self.projection_dims = projection_dims
@@ -28,13 +31,14 @@ class GraphEncoder(nn.Module):
         #inputs = self.tokenizer(x, return_tensors='pt', padding=True, truncation=True)
         outputs = self.bert(x)
         pooled_output = outputs['pooler_output']
+        pooled_output = pooled_output.to(args.device)
         x = project_embeddings(pooled_output, self.num_projection_layers, self.projection_dims, self.dropout_rate)
         return x
     
 class TextEncoder(nn.Module):
     def __init__(self, num_projection_layers, projection_dims, dropout_rate, pretrained=True):
         super(TextEncoder, self).__init__()
-        self.bert = torch.hub.load('huggingface/pytorch-transformers', 'model', 'bert-base-uncased')
+        self.bert = torch.hub.load('huggingface/pytorch-transformers', 'model', 'bert-base-uncased').to(args.device)
         self.tokenizer = torch.hub.load('huggingface/pytorch-transformers', 'tokenizer', 'bert-base-uncased')
         self.num_projection_layers = num_projection_layers
         self.projection_dims = projection_dims
@@ -45,6 +49,7 @@ class TextEncoder(nn.Module):
         #inputs = self.tokenizer(x, return_tensors='pt', padding=True, truncation=True)
         outputs = self.bert(x)
         pooled_output = outputs['pooler_output']
+        pooled_output = pooled_output.to(args.device)
         x = project_embeddings(pooled_output, self.num_projection_layers, self.projection_dims, self.dropout_rate)
         return x
 

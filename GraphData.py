@@ -1,5 +1,5 @@
 import torch
-from torch_geometric.data import Data
+# from torch_geometric.data import Data
 from collections import defaultdict
 from torch.utils.data import Dataset
 import os

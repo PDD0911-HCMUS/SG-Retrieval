@@ -83,8 +83,9 @@ def main():
                 loss = dot_loss(text_embeddings, graph_embeddings)
                 val_loss += loss.item()
         
-        dual_model_encoder.reltr.state_dict()
-        dual_model_encoder.bert.state_dict()
+        # dual_model_encoder.reltr.state_dict()
+        # dual_model_encoder.bert.state_dict()
+        # dual_model_encoder.state_dict()
 
         val_loss /= len(data_loader_valid)
         
@@ -102,6 +103,7 @@ def main():
 
         torch.save(dual_model_encoder.reltr.state_dict(), output_dir + 'reltr_weights_' + str(epoch) + '.pth')
         torch.save(dual_model_encoder.bert.state_dict(), output_dir + 'bert_weights_' + str(epoch) + '.pth')
+        torch.save(dual_model_encoder.state_dict(), output_dir + 'dual_weights_' + str(epoch) + '.pth')
 
 if __name__ == "__main__":
     main()

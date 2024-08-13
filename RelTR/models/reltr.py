@@ -4,8 +4,8 @@
 import torch
 import torch.nn.functional as F
 from torch import nn
-from SGGControllerRelTR.util import box_ops
-from SGGControllerRelTR.util.misc import (NestedTensor, nested_tensor_from_tensor_list,
+from RelTR.util import box_ops
+from RelTR.util.misc import (NestedTensor, nested_tensor_from_tensor_list,
                        accuracy, get_world_size, interpolate,
                        is_dist_avail_and_initialized)
 from .backbone import build_backbone
@@ -65,7 +65,7 @@ class RelTR(nn.Module):
         self.obj_bbox_embed = MLP(hidden_dim, hidden_dim, 4, 3)
 
 
-    def forward(self, samples: NestedTensor):
+    def forward(self, samples):
         """ The forward expects a NestedTensor, which consists of:
                - samples.tensor: batched images, of shape [batch_size x 3 x H x W]
                - samples.mask: a binary mask of shape [batch_size x H x W], containing 1 on padded pixels
@@ -98,6 +98,7 @@ class RelTR(nn.Module):
         so_masks = self.so_mask_fc(so_masks)
 
         hs_sub, hs_obj = torch.split(hs_t, self.hidden_dim, dim=-1)
+        # print(f'hs_sub: {hs_sub.size()}')
 
         outputs_class = self.entity_class_embed(hs)
         outputs_coord = self.entity_bbox_embed(hs).sigmoid()
@@ -117,7 +118,7 @@ class RelTR(nn.Module):
         if self.aux_loss:
             out['aux_outputs'] = self._set_aux_loss(outputs_class, outputs_coord, outputs_class_sub, outputs_coord_sub,
                                                     outputs_class_obj, outputs_coord_obj, outputs_class_rel)
-        return out
+        return out, hs_t[-1]
 
     @torch.jit.unused
     def _set_aux_loss(self, outputs_class, outputs_coord, outputs_class_sub, outputs_coord_sub,

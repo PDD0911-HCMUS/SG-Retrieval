@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 def main():
 
-    num_epochs = 1
+    num_epochs = 30
     ckpt = 'ckpt/'
     saved_model_epoch = 'cross_modal_model_with_attention_epoch_'
     saved_model = 'cross_modal_model_with_attention'
@@ -20,8 +20,8 @@ def main():
     index = 5
     input_ids, attention_mask, label_ids, label_attention_mask = data_train.__getitem__(index)
 
-    dataloader_train = DataLoader(data_train, batch_size=4, shuffle=True)
-    dataloader_valid = DataLoader(data_valid, batch_size=4, shuffle=True)
+    dataloader_train = DataLoader(data_train, batch_size=64, shuffle=True)
+    dataloader_valid = DataLoader(data_valid, batch_size=64, shuffle=True)
 
     #check dataset
     for i, (input_ids, attention_mask, label_ids, label_attention_mask) in enumerate(dataloader_train):
@@ -40,7 +40,7 @@ def main():
         for epoch in range(num_epochs):
             model.train()
             train_loss = 0.0
-            print(f'training epoch {epoch}/{num_epochs}: ')
+            print(f'training epoch {epoch + 1}/{num_epochs}: ')
             for input_ids, attention_mask, label_ids, label_attention_mask in tqdm(dataloader_train):
                 input_ids = input_ids.to(device)
                 attention_mask = attention_mask.to(device)
@@ -74,6 +74,7 @@ def main():
             
             val_loss /= len(dataloader_valid)
             log_file.write(f'Epoch {epoch+1}, Validation Loss: {val_loss}\n')
+            print(f'Epoch {epoch+1}, Validation Loss: {val_loss}')
             torch.save(model.state_dict(), f'{ckpt}{saved_model_epoch}_{epoch+1}.pth')
 
         torch.save(model.state_dict(), f'{ckpt}{saved_model}.pth')
