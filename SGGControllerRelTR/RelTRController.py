@@ -222,12 +222,12 @@ def extract_triplet(mode):
     with open(mode + '_trip.json', 'w') as f:
         json.dump(data_jsons, f)
     return data_jsons
+
 def sgg_controller(fileName):
     file_name = args.upload + fileName
     path = Path(file_name.replace('.jpg', ''))
     if not path.exists():
         path.mkdir(parents=True, exist_ok=True)
-
     im = Image.open(file_name)
     img = transform(im).unsqueeze(0)
     # propagate through the model
@@ -238,8 +238,8 @@ def sgg_controller(fileName):
     probas = outputs['rel_logits'].softmax(-1)[0, :, :-1]
     probas_sub = outputs['sub_logits'].softmax(-1)[0, :, :-1]
     probas_obj = outputs['obj_logits'].softmax(-1)[0, :, :-1]
-    keep = torch.logical_and(probas.max(-1).values > 0.3, torch.logical_and(probas_sub.max(-1).values > 0.3,
-                                                                            probas_obj.max(-1).values > 0.3))
+    keep = torch.logical_and(probas.max(-1).values > 0.7, torch.logical_and(probas_sub.max(-1).values > 0.7,
+                                                                            probas_obj.max(-1).values > 0.7))
 
     # convert boxes from [0; 1] to image scales
     sub_bboxes_scaled = rescale_bboxes(outputs['sub_boxes'][0, keep], im.size)
