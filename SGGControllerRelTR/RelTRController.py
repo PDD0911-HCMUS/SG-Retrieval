@@ -238,8 +238,9 @@ def sgg_controller(fileName):
     probas = outputs['rel_logits'].softmax(-1)[0, :, :-1]
     probas_sub = outputs['sub_logits'].softmax(-1)[0, :, :-1]
     probas_obj = outputs['obj_logits'].softmax(-1)[0, :, :-1]
-    keep = torch.logical_and(probas.max(-1).values > 0.7, torch.logical_and(probas_sub.max(-1).values > 0.7,
-                                                                            probas_obj.max(-1).values > 0.7))
+    threshhold = 0.5
+    keep = torch.logical_and(probas.max(-1).values > threshhold, torch.logical_and(probas_sub.max(-1).values > threshhold,
+                                                                            probas_obj.max(-1).values > threshhold))
 
     # convert boxes from [0; 1] to image scales
     sub_bboxes_scaled = rescale_bboxes(outputs['sub_boxes'][0, keep], im.size)

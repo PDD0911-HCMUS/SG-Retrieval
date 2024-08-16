@@ -19,16 +19,7 @@ port_id = 5432
 # connection string
 conn_str = f"dbname='{database}' user='{username}' host='{hostname}' password='{password}' port='{port_id}'"
 
-with open('Datasets/VisualGenome/rel.json', 'r') as f:
-    all_rels = json.load(f)
 
-with open('Datasets/VisualGenome/categories.json', 'r') as f:
-    categories = json.load(f)
-
-coco = COCO('Datasets/VisualGenome/train.json')
-rel_categories = all_rels['rel_categories']
-rel_annotations = all_rels['train']
-categories = categories['categories']
 
 
 def compute_text_embedding(text_triplets, model, device):
@@ -64,6 +55,17 @@ def compute_label_embeddings(triplets_list, model, device):
         # get result
         record = cursor.fetchone()
         print("You are connected to - ", record)
+
+        with open('Datasets/VisualGenome/rel.json', 'r') as f:
+            all_rels = json.load(f)
+
+        with open('Datasets/VisualGenome/categories.json', 'r') as f:
+            categories = json.load(f)
+
+        coco = COCO('Datasets/VisualGenome/train.json')
+        rel_categories = all_rels['rel_categories']
+        rel_annotations = all_rels['train']
+        categories = categories['categories']
 
         label_embeddings = []
         image_ids = []
