@@ -172,8 +172,8 @@ def extract_triplet(mode):
             probas = outputs['rel_logits'].softmax(-1)[0, :, :-1]
             probas_sub = outputs['sub_logits'].softmax(-1)[0, :, :-1]
             probas_obj = outputs['obj_logits'].softmax(-1)[0, :, :-1]
-            keep = torch.logical_and(probas.max(-1).values > 0.3, torch.logical_and(probas_sub.max(-1).values > 0.3,
-                                                                                    probas_obj.max(-1).values > 0.3))
+            keep = torch.logical_and(probas.max(-1).values > 0.7, torch.logical_and(probas_sub.max(-1).values > 0.7,
+                                                                                    probas_obj.max(-1).values > 0.7))
             topk = 10 # display up to 10 images
             keep_queries = torch.nonzero(keep, as_tuple=True)[0]
             indices = torch.argsort(-probas[keep_queries].max(-1)[0] * probas_sub[keep_queries].max(-1)[0] * probas_obj[keep_queries].max(-1)[0])[:topk]
@@ -310,4 +310,4 @@ def sgg_controller(fileName):
 # filename = '20240325153141.jpg'
 # sgg_controller(filename)
 
-# extract_triplet('train')
+# extract_triplet('val')

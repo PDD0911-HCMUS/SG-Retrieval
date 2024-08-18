@@ -1,6 +1,7 @@
 from FashionpediaController.datasets.data_pre import build_data, tokenize_triplets
 from FashionpediaController.model_cross import build_model
 from pycocotools.coco import COCO
+import torch.nn.functional as F
 import torch
 import torch.nn as nn
 from tqdm import tqdm
@@ -18,9 +19,6 @@ password = '123456'
 port_id = 5432
 # connection string
 conn_str = f"dbname='{database}' user='{username}' host='{hostname}' password='{password}' port='{port_id}'"
-
-
-
 
 def compute_text_embedding(text_triplets, model, device):
     
@@ -155,23 +153,29 @@ def find_matcher(text_triplets, top_k = 10):
             file_image.append(record[0])
             label_embeddings.append(record[1])
 
-        label_embeddings = torch.tensor(label_embeddings)
+        label_embeddings = torch.tensor(label_embeddings).squeeze(1)
         text_triplets = [triplet.replace('/', ' ') for triplet in text_triplets]
         text_embedding = compute_text_embedding(text_triplets, model, device)
-        
-        cosine_similarity = nn.CosineSimilarity(dim=-1)
-        similarities = cosine_similarity(text_embedding, label_embeddings)
 
-        print(similarities.size())
+        #Normalization:
+        text_embedding = F.normalize(text_embedding, p=2, dim=1)
+        label_embeddings = F.normalize(label_embeddings, p=2, dim=1)
         
-        # best_match_idx = torch.argmax(similarities).item()
-        top_k_indices = torch.topk(similarities.squeeze(), top_k).indices
+        #For Cosine Similarity
+        # cosine_similarity = nn.CosineSimilarity(dim=-1)
+        # similarities = cosine_similarity(text_embedding, label_embeddings)
+        # # best_match_idx = torch.argmax(similarities).item()
+        # top_k_indices = torch.topk(similarities.squeeze(), top_k).indices
+        # top_k_image_names = [file_image[idx] for idx in top_k_indices]
 
-        top_k_image_names = [file_image[idx] for idx in top_k_indices]
-        # return top_k_indices, top_k_image_names
-        # return best_match_idx, similarities[best_match_idx].item()
+        #For Dot product Similarity
+        dot_similarity = torch.matmul(text_embedding, label_embeddings.t())
+        _, results = torch.topk(dot_similarity, k=top_k, dim=1)
+        results = results.cpu().numpy()
+        top_k_image_names = [[file_image[idx] for idx in indices] for indices in results]
+
         return {
-            "imgs": top_k_image_names
+            "imgs": top_k_image_names[0]
         }
     except Exception as e:
         print(e)
@@ -207,3 +211,7 @@ def find_matcher(text_triplets, top_k = 10):
 
 # if __name__ == main():
 #     main()
+
+{'imgs': ['2404705.jpg', '2408608.jpg', '2385013.jpg', '2381694.jpg', '2361188.jpg', '2368079.jpg', '2368465.jpg', '2402825.jpg', '498383.jpg']}
+{'imgs': ['2404705.jpg', '2408608.jpg', '2385013.jpg', '2381694.jpg', '2361188.jpg', '2368079.jpg', '2368465.jpg', '2402825.jpg', '498383.jpg']}
+{'imgs': ['2404705.jpg', '2385013.jpg', '2408608.jpg', '2402825.jpg', '2386923.jpg', '2357883.jpg', '2368079.jpg', '2381694.jpg', '498383.jpg']}
