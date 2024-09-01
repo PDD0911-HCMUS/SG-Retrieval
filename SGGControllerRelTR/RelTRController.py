@@ -11,10 +11,20 @@ from pathlib import Path
 import networkx as nx
 import json
 from tqdm import tqdm
+from flask import Blueprint, request, jsonify, send_from_directory
+import os
+from flask_cors import CORS, cross_origin
+
+sgg_api = Blueprint('sgg', __name__)
+
 
 CLASSES = args.CLASSES
-
 REL_CLASSES = args.REL_CLASSES
+transform = T.Compose([
+    T.Resize(512),
+    T.ToTensor(),
+    T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+])
 
 def create_model():
     position_embedding = PositionEmbeddingSine(128, normalize=True)
@@ -33,18 +43,13 @@ def create_model():
                 num_entities=100, num_triplets=200)
 
     # The checkpoint is pretrained on Visual Genome
-    ckpt = torch.load('ckpt/checkpoint0149reltr.pth', map_location='cpu')
+    ckpt = torch.load(args.ckpt_sgg, map_location='cpu')
     model.load_state_dict(ckpt['model'])
     model.eval()
 
     return model
 
 
-transform = T.Compose([
-    T.Resize(512),
-    T.ToTensor(),
-    T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-])
 # for output bounding box post-processing
 def box_cxcywh_to_xyxy(x):
     x_c, y_c, w, h = x.unbind(1)
@@ -152,11 +157,11 @@ def draw_detail_triplet(im, indices,
 
 def extract_triplet(mode):
     if(mode == 'train'):
-        annfile = 'Datasets/VisualGenome/train.json'
+        annfile = args.anno_train
         with open(annfile) as f:
             anno = json.load(f)
     if(mode == 'val'):
-        annfile = 'Datasets/VisualGenome/val.json'
+        annfile = args.anno_valid
         with open(annfile) as f:
             anno = json.load(f)
 
@@ -164,7 +169,7 @@ def extract_triplet(mode):
     data_jsons = []
     for item in tqdm(anno['images'][:]):
         try:
-            im = Image.open('Datasets/VisualGenome/VG_100K/' + item['file_name'])
+            im = Image.open(args.img_folder_vg + item['file_name'])
             img = transform(im).unsqueeze(0)
             outputs = model(img)
 
@@ -224,7 +229,7 @@ def extract_triplet(mode):
     return data_jsons
 
 def sgg_controller(fileName):
-    file_name = args.upload + fileName
+    file_name = args.dir_upload + fileName
     path = Path(file_name.replace('.jpg', ''))
     if not path.exists():
         path.mkdir(parents=True, exist_ok=True)
@@ -276,18 +281,21 @@ def sgg_controller(fileName):
         dec_attn_weights_sub = dec_attn_weights_sub[0]
         dec_attn_weights_obj = dec_attn_weights_obj[0]
 
-        # get the feature map shape
-        h, w = conv_features['0'].tensors.shape[-2:]
-        im_w, im_h = im.size
-
-        sList, oList, rList, t = [], [], [], []
+        sList, oList, rList, t, t_obj = [], [], [], [], []
         
         for idx in keep_queries:
             sList.append(CLASSES[probas_sub[idx].argmax()])
             oList.append(CLASSES[probas_obj[idx].argmax()])
             rList.append(REL_CLASSES[probas[idx].argmax()])
             txt = CLASSES[probas_sub[idx].argmax()] + '/' + REL_CLASSES[probas[idx].argmax()] + '/' + CLASSES[probas_obj[idx].argmax()]
+
+            t_json = {
+                "subject": CLASSES[probas_sub[idx].argmax()],
+                "relation": REL_CLASSES[probas[idx].argmax()],
+                "object": CLASSES[probas_obj[idx].argmax()]
+            }
             t.append(txt)
+            t_obj.append(t_json)
 
         out_res_grp = str(path)+'/'+args.prefix_graph+fileName
         out_res_obj = str(path)+'/'+args.prefix_name+fileName
@@ -304,10 +312,47 @@ def sgg_controller(fileName):
         'objectDet': args.prefix_name+fileName,
         'graphDet': args.prefix_graph+fileName,
         'tripletDet': args.prefix_triplet+fileName,
-        'triplets': t
+        'triplets': t,
+        'tripletSet': t_obj 
     }
 
-# filename = '20240325153141.jpg'
-# sgg_controller(filename)
+@sgg_api.route('/sgg-gen', methods=['POST'])
+@cross_origin()
+def sgg_generation():
+    
+    if 'file' not in request.files:
+        return jsonify(
+            Data = None,
+            Status = False, 
+            Msg = 'No file part in the request'
+            )
 
-# extract_triplet('val')
+    file = request.files['file']
+
+    if file.filename == '':
+        return jsonify(
+            Data = None,
+            Status = False, 
+            Msg = 'No selected file'
+        )
+
+    if file:
+        filepath = os.path.join(args.dir_upload, file.filename)
+        file.save(filepath)
+        res = sgg_controller(file.filename)
+        print(res)
+        return jsonify(
+            Data = res,
+            Status = True, 
+            Msg = 'OK'
+        )
+    
+@sgg_api.route('/res-sgg/<filename>')
+def upload_image(filename):
+    print(filename)
+    if('object+' in filename):
+        return send_from_directory(args.dir_upload + filename.replace('.jpg', '').replace('object+', ''), filename)
+    if('graph+' in filename):
+        return send_from_directory(args.dir_upload + filename.replace('.jpg', '').replace('graph+', ''), filename)
+    if('triplet+' in filename):
+        return send_from_directory(args.dir_upload + filename.replace('.jpg', '').replace('triplet+', ''), filename)

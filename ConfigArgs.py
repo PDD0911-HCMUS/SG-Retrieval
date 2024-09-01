@@ -1,28 +1,22 @@
 root = 'Datasets/Incidents/anno/'
-# anno_train = root.replace('anno', 'train')
-# anno_valid = root.replace('anno', 'val')
 anno_train = 'Datasets/VisualGenome/train.json'
 anno_valid = 'Datasets/VisualGenome/val.json'
 img_folder_vg = 'Datasets/VisualGenome/VG_100K/'
+dir_upload = 'Datasets/upload/'
 
 batch_size = 12
 num_workers = 0
-
 num_epochs = 200
-
 max_length = 128
-
 device = 'cuda:2'
-
 seed = 42
-upload = 'Datasets/upload/'
+
 # connection information
 hostname = 'localhost'
 database = 'RetrievalSystemTraffic'
 username = 'postgres'
 password = '123456'
 port_id = 5432
-# connection string
 conn_str = f"dbname='{database}' user='{username}' host='{hostname}' password='{password}' port='{port_id}'"
 
 CLASSES = [ 'N/A', 'airplane', 'animal', 'arm', 'bag', 'banana', 'basket', 'beach', 'bear', 'bed', 'bench', 'bike',
@@ -50,3 +44,6 @@ REL_CLASSES = ['__background__', 'above', 'across', 'against', 'along', 'and', '
 prefix_name = 'object+'
 prefix_graph = 'graph+'
 prefix_triplet = 'triplet+'
+
+ckpt_rev = 'ckpt/cross_modal_model_with_attention_epoch__30.pth'
+ckpt_sgg = 'ckpt/checkpoint0149reltr.pth'
