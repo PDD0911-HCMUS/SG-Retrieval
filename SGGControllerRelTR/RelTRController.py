@@ -139,6 +139,8 @@ def draw_detail_triplet(im, indices,
     #     rows = 2
     fig, axs = plt.subplots(ncols=(num_images + rows - 1) // rows, nrows=rows, figsize=(22, 5))
     axs = axs.flatten() if rows > 1 else [axs]
+    for ax in axs:
+        ax.axis('off') 
     for idx, ax_i, (sxmin, symin, sxmax, symax), (oxmin, oymin, oxmax, oymax) in \
             zip(keep_queries, axs, sub_bboxes_scaled[indices], obj_bboxes_scaled[indices]):
         
@@ -228,128 +230,130 @@ def extract_triplet(mode):
         json.dump(data_jsons, f)
     return data_jsons
 
-def sgg_controller(fileName):
-    file_name = args.dir_upload + fileName
-    path = Path(file_name.replace('.jpg', ''))
-    if not path.exists():
-        path.mkdir(parents=True, exist_ok=True)
-    im = Image.open(file_name)
-    img = transform(im).unsqueeze(0)
-    # propagate through the model
-    model = create_model()
-    outputs = model(img)
-
-    # keep only predictions with >0.3 confidence
-    probas = outputs['rel_logits'].softmax(-1)[0, :, :-1]
-    probas_sub = outputs['sub_logits'].softmax(-1)[0, :, :-1]
-    probas_obj = outputs['obj_logits'].softmax(-1)[0, :, :-1]
-    threshhold = 0.5
-    keep = torch.logical_and(probas.max(-1).values > threshhold, torch.logical_and(probas_sub.max(-1).values > threshhold,
-                                                                            probas_obj.max(-1).values > threshhold))
-
-    # convert boxes from [0; 1] to image scales
-    sub_bboxes_scaled = rescale_bboxes(outputs['sub_boxes'][0, keep], im.size)
-    obj_bboxes_scaled = rescale_bboxes(outputs['obj_boxes'][0, keep], im.size)
-
-    topk = 10 # display up to 10 images
-    keep_queries = torch.nonzero(keep, as_tuple=True)[0]
-    indices = torch.argsort(-probas[keep_queries].max(-1)[0] * probas_sub[keep_queries].max(-1)[0] * probas_obj[keep_queries].max(-1)[0])[:topk]
-    keep_queries = keep_queries[indices]
-
-    # save the attention weights
-    conv_features, dec_attn_weights_sub, dec_attn_weights_obj = [], [], []
-    hooks = [
-        model.backbone[-2].register_forward_hook(
-            lambda self, input, output: conv_features.append(output)
-        ),
-        model.transformer.decoder.layers[-1].cross_attn_sub.register_forward_hook(
-            lambda self, input, output: dec_attn_weights_sub.append(output[1])
-        ),
-        model.transformer.decoder.layers[-1].cross_attn_obj.register_forward_hook(
-            lambda self, input, output: dec_attn_weights_obj.append(output[1])
-        )]
-
-    with torch.no_grad():
-        # propagate through the model
-        outputs = model(img)
-
-        for hook in hooks:
-            hook.remove()
-
-        # don't need the list anymore
-        conv_features = conv_features[0]
-        dec_attn_weights_sub = dec_attn_weights_sub[0]
-        dec_attn_weights_obj = dec_attn_weights_obj[0]
-
-        sList, oList, rList, t, t_obj = [], [], [], [], []
-        
-        for idx in keep_queries:
-            sList.append(CLASSES[probas_sub[idx].argmax()])
-            oList.append(CLASSES[probas_obj[idx].argmax()])
-            rList.append(REL_CLASSES[probas[idx].argmax()])
-            txt = CLASSES[probas_sub[idx].argmax()] + '/' + REL_CLASSES[probas[idx].argmax()] + '/' + CLASSES[probas_obj[idx].argmax()]
-
-            t_json = {
-                "subject": CLASSES[probas_sub[idx].argmax()],
-                "relation": REL_CLASSES[probas[idx].argmax()],
-                "object": CLASSES[probas_obj[idx].argmax()]
-            }
-            t.append(txt)
-            t_obj.append(t_json)
-
-        out_res_grp = str(path)+'/'+args.prefix_graph+fileName
-        out_res_obj = str(path)+'/'+args.prefix_name+fileName
-        out_triplet = str(path)+'/'+args.prefix_triplet+fileName
-
-        draw_single_object_dect(im, indices, keep_queries, sub_bboxes_scaled, obj_bboxes_scaled, out_res_obj)
-        draw_per_detail_triplet(im, indices, keep_queries, sub_bboxes_scaled, obj_bboxes_scaled, out_res_obj)
-        draw_detail_triplet(im, indices, keep_queries, sub_bboxes_scaled, obj_bboxes_scaled, probas_sub, probas, probas_obj, out_triplet)
-        draw_sg(sList,oList,rList, out_res_grp)
-
-    # return [args.prefix_name+fileName, args.prefix_graph+fileName, args.prefix_triplet+fileName, fileName, t]
-
-    return {
-        'objectDet': args.prefix_name+fileName,
-        'graphDet': args.prefix_graph+fileName,
-        'tripletDet': args.prefix_triplet+fileName,
-        'triplets': t,
-        'tripletSet': t_obj 
-    }
-
 @sgg_api.route('/sgg-gen', methods=['POST'])
 @cross_origin()
-def sgg_generation():
-    
-    if 'file' not in request.files:
-        return jsonify(
-            Data = None,
-            Status = False, 
-            Msg = 'No file part in the request'
+def sgg_controller():
+    try:
+        if 'file' not in request.files:
+            return jsonify(
+                Data = None,
+                Status = False, 
+                Msg = 'No file part in the request'
+                )
+
+        file = request.files['file']
+
+        if file.filename == '':
+            return jsonify(
+                Data = None,
+                Status = False, 
+                Msg = 'No selected file'
             )
+        if file:
+            filepath = os.path.join(args.dir_upload, file.filename)
+            file.save(filepath)
 
-    file = request.files['file']
+        fileName = file.filename
+        file_name = args.dir_upload + fileName
+        path = Path(file_name.replace('.jpg', ''))
+        if not path.exists():
+            path.mkdir(parents=True, exist_ok=True)
+        im = Image.open(file_name)
+        img = transform(im).unsqueeze(0)
+        # propagate through the model
+        model = create_model()
+        outputs = model(img)
 
-    if file.filename == '':
-        return jsonify(
-            Data = None,
-            Status = False, 
-            Msg = 'No selected file'
-        )
+        # keep only predictions with >0.3 confidence
+        probas = outputs['rel_logits'].softmax(-1)[0, :, :-1]
+        probas_sub = outputs['sub_logits'].softmax(-1)[0, :, :-1]
+        probas_obj = outputs['obj_logits'].softmax(-1)[0, :, :-1]
+        threshhold = 0.5
+        keep = torch.logical_and(probas.max(-1).values > threshhold, torch.logical_and(probas_sub.max(-1).values > threshhold,
+                                                                                probas_obj.max(-1).values > threshhold))
 
-    if file:
-        filepath = os.path.join(args.dir_upload, file.filename)
-        file.save(filepath)
-        res = sgg_controller(file.filename)
-        print(res)
+        # convert boxes from [0; 1] to image scales
+        sub_bboxes_scaled = rescale_bboxes(outputs['sub_boxes'][0, keep], im.size)
+        obj_bboxes_scaled = rescale_bboxes(outputs['obj_boxes'][0, keep], im.size)
+
+        topk = 10 # display up to 10 images
+        keep_queries = torch.nonzero(keep, as_tuple=True)[0]
+        indices = torch.argsort(-probas[keep_queries].max(-1)[0] * probas_sub[keep_queries].max(-1)[0] * probas_obj[keep_queries].max(-1)[0])[:topk]
+        keep_queries = keep_queries[indices]
+
+        # save the attention weights
+        conv_features, dec_attn_weights_sub, dec_attn_weights_obj = [], [], []
+        hooks = [
+            model.backbone[-2].register_forward_hook(
+                lambda self, input, output: conv_features.append(output)
+            ),
+            model.transformer.decoder.layers[-1].cross_attn_sub.register_forward_hook(
+                lambda self, input, output: dec_attn_weights_sub.append(output[1])
+            ),
+            model.transformer.decoder.layers[-1].cross_attn_obj.register_forward_hook(
+                lambda self, input, output: dec_attn_weights_obj.append(output[1])
+            )]
+
+        with torch.no_grad():
+            # propagate through the model
+            outputs = model(img)
+
+            for hook in hooks:
+                hook.remove()
+
+            # don't need the list anymore
+            conv_features = conv_features[0]
+            dec_attn_weights_sub = dec_attn_weights_sub[0]
+            dec_attn_weights_obj = dec_attn_weights_obj[0]
+
+            sList, oList, rList, t, t_obj = [], [], [], [], []
+            
+            for idx in keep_queries:
+                sList.append(CLASSES[probas_sub[idx].argmax()])
+                oList.append(CLASSES[probas_obj[idx].argmax()])
+                rList.append(REL_CLASSES[probas[idx].argmax()])
+                txt = CLASSES[probas_sub[idx].argmax()] + '/' + REL_CLASSES[probas[idx].argmax()] + '/' + CLASSES[probas_obj[idx].argmax()]
+
+                t_json = {
+                    "subject": CLASSES[probas_sub[idx].argmax()],
+                    "relation": REL_CLASSES[probas[idx].argmax()],
+                    "object": CLASSES[probas_obj[idx].argmax()]
+                }
+                t.append(txt)
+                t_obj.append(t_json)
+
+            out_res_grp = str(path)+'/'+args.prefix_graph+fileName
+            out_res_obj = str(path)+'/'+args.prefix_name+fileName
+            out_triplet = str(path)+'/'+args.prefix_triplet+fileName
+
+            draw_single_object_dect(im, indices, keep_queries, sub_bboxes_scaled, obj_bboxes_scaled, out_res_obj)
+            draw_per_detail_triplet(im, indices, keep_queries, sub_bboxes_scaled, obj_bboxes_scaled, out_res_obj)
+            draw_detail_triplet(im, indices, keep_queries, sub_bboxes_scaled, obj_bboxes_scaled, probas_sub, probas, probas_obj, out_triplet)
+            draw_sg(sList,oList,rList, out_res_grp)
+
+        # return [args.prefix_name+fileName, args.prefix_graph+fileName, args.prefix_triplet+fileName, fileName, t]
+        res = {
+            'objectDet': args.prefix_name+fileName,
+            'graphDet': args.prefix_graph+fileName,
+            'tripletDet': args.prefix_triplet+fileName,
+            'triplets': t,
+            'tripletSet': t_obj 
+        }
+
         return jsonify(
             Data = res,
             Status = True, 
-            Msg = 'OK'
+            Msg = 'Scene Graph Generated Successfully'
+        )
+    except Exception as e:
+        return jsonify(
+            Data = None,
+            Status = False, 
+            Msg = str(e)
         )
     
 @sgg_api.route('/res-sgg/<filename>')
 def upload_image(filename):
-    print(filename)
     if('object+' in filename):
         return send_from_directory(args.dir_upload + filename.replace('.jpg', '').replace('object+', ''), filename)
     if('graph+' in filename):

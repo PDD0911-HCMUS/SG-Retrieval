@@ -138,7 +138,7 @@ def find_matcher():
 
         label_embeddings = []
         file_image = []
-        triplets = []
+        triplets, triplet_set = [], []
         
         sql = """SELECT image_name, embeding_value, triplets FROM "Image2GraphEmbedding";"""
         cursor.execute(sql)
@@ -147,6 +147,7 @@ def find_matcher():
             file_image.append(record[0])
             label_embeddings.append(record[1])
             triplets.append(extract_subject_relation_object(parse_postgres_array(record[2])))
+            triplet_set.append(parse_postgres_array(record[2]))
 
         label_embeddings = torch.tensor(label_embeddings).squeeze(1)
         text_triplets = [triplet.replace('/', ' ') for triplet in text_triplets]
@@ -199,7 +200,72 @@ def find_matcher():
         if conn is not None:
             conn.close()
             #print("Database connection closed.")
+def jaccard_similarity(set1, set2):
+    intersection = set1.intersection(set2)
+    union = set1.union(set2)
+    if not union:
+        return 0.0  # Tránh chia cho 0
+    return len(intersection) / len(union)
+
+@rev_api.route('/rev-jaccard', methods = ['POST'])
+@cross_origin()
+def find_matcher_jacc():
+    try: 
+        data = request.get_json()
+        text_triplets = data['triplet']
+        text_triplets = set(text_triplets)
+
+        top_k = 9
+
+        # connect to DB
+        conn = psycopg2.connect(args.conn_str)
+        cursor = conn.cursor()
+
+        img_id = []
+        file_image = []
+        triplet_set = []
+        trip_by_im = []
+        
+        sql = """SELECT image_name, triplets FROM "Image2GraphEmbedding";"""
+        cursor.execute(sql)
+        records = cursor.fetchall()
+        for record in records[:]:
+            file_image.append(record[0])
+            triplet_set.append(set(parse_postgres_array(record[1])))
+
+        combined = list(zip(triplet_set, file_image))
+        similarities = [(filename, jaccard_similarity(text_triplets, triplet_set), triplet_set) for triplet_set, filename in combined]
+
+        top_k_res = sorted(similarities, key=lambda x: x[1], reverse=True)[:top_k]
     
+        for i, s, t in top_k_res:
+            t_json = {
+                "image_id": i,
+                "trip": extract_subject_relation_object(list(t))
+            }
+            img_id.append(i)
+            trip_by_im.append(t_json)
+        
+        res = {
+            "imgs": img_id,
+            "triplets": trip_by_im
+        }
+        return jsonify(
+            Data = res,
+            Status = True, 
+            Msg = 'OK'
+        )
+
+    except Exception as e:
+        return jsonify(
+            Data = None,
+            Status = False, 
+            Msg = f'Error: {e}'
+        )
+    finally:
+        # close connection
+        if conn is not None:
+            conn.close()
 
 @rev_api.route('/images/<filename>')
 def serve_image(filename):
