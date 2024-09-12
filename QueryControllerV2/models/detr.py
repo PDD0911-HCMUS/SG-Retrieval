@@ -76,16 +76,15 @@ class DETR(nn.Module):
         outputs_desc = outputs_desc.logits.view(batch_size, num_queries, 10, -1)
         out = {'pred_boxes': outputs_coord[-1], 'pred_desc': outputs_desc }
         if self.aux_loss:
-            out['aux_outputs'] = self._set_aux_loss(outputs_coord, outputs_desc)
+            out['aux_outputs'] = self._set_aux_loss(outputs_coord)
         return out
 
     @torch.jit.unused
-    def _set_aux_loss(self, outputs_coord, outputs_desc):
+    def _set_aux_loss(self, outputs_coord):
         # this is a workaround to make torchscript happy, as torchscript
         # doesn't support dictionary with non-homogeneous values, such
         # as a dict having both a Tensor and a list.
-        return [{'pred_boxes': a, 'pred_desc': b}
-            for a, b in zip(outputs_coord[:-1], outputs_desc[:-1])]
+        return [{'pred_boxes': a} for a in outputs_coord[:-1]]
 
 
 class SetCriterion(nn.Module):
@@ -220,9 +219,10 @@ class SetCriterion(nn.Module):
             for i, aux_outputs in enumerate(outputs['aux_outputs']):
                 indices = self.matcher(aux_outputs, targets)
                 for loss in self.losses:
-                    l_dict = self.get_loss(loss, aux_outputs, targets, indices, num_boxes)
-                    l_dict = {k + f'_{i}': v for k, v in l_dict.items()}
-                    losses.update(l_dict)
+                    if loss != 'text':
+                        l_dict = self.get_loss(loss, aux_outputs, targets, indices, num_boxes)
+                        l_dict = {k + f'_{i}': v for k, v in l_dict.items()}
+                        losses.update(l_dict)
 
         return losses
 
