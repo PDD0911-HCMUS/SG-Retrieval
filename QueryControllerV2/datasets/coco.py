@@ -5,18 +5,23 @@ COCO dataset which returns image_id for evaluation.
 Mostly copy-paste from https://github.com/pytorch/vision/blob/13b35ff/references/detection/coco_utils.py
 """
 from pathlib import Path
-
+from transformers import GPT2Tokenizer
 import torch
 import torch.utils.data
 import torchvision
 from pycocotools import mask as coco_mask
 
-import QueryController.datasets.transforms as T
+# import QueryControllerV2.datasets.transforms as T
+# import QueryControllerV2.util.config as cf
+
+import datasets.transforms as T
+import util.config as cf
+
 from PIL import Image, ImageDraw 
 from matplotlib import cm
 import numpy as np
 import matplotlib.pyplot as plt
-import QueryController.util.config as cf
+
 
 class CocoDetection(torchvision.datasets.CocoDetection):
     def __init__(self, img_folder, ann_file, transforms, return_masks):
@@ -54,6 +59,8 @@ def convert_coco_poly_to_mask(segmentations, height, width):
 class ConvertCocoPolysToMask(object):
     def __init__(self, return_masks=False):
         self.return_masks = return_masks
+        self.tokenizer = GPT2Tokenizer.from_pretrained('distilgpt2')
+        self.tokenizer.pad_token = self.tokenizer.eos_token
 
     def __call__(self, image, target):
         w, h = image.size
@@ -66,18 +73,16 @@ class ConvertCocoPolysToMask(object):
         anno = [obj for obj in anno if 'iscrowd' not in obj or obj['iscrowd'] == 0]
 
         boxes = [obj["bbox"] for obj in anno]
+
+        desc = [obj["desc"] for obj in anno]
+        tokenized_output = self.tokenizer(desc, return_tensors="pt", padding="max_length", truncation=True, max_length=10)
+        desc_em  = tokenized_output.input_ids
+        desc_ms = tokenized_output.attention_mask
         # guard against no boxes via resizing
         boxes = torch.as_tensor(boxes, dtype=torch.float32).reshape(-1, 4)
         boxes[:, 2:] += boxes[:, :2]
         boxes[:, 0::2].clamp_(min=0, max=w)
         boxes[:, 1::2].clamp_(min=0, max=h)
-
-        classes = [obj["category_id"] for obj in anno]
-        classes = torch.tensor(classes, dtype=torch.int64)
-
-        if self.return_masks:
-            segmentations = [obj["segmentation"] for obj in anno]
-            masks = convert_coco_poly_to_mask(segmentations, h, w)
 
         keypoints = None
         if anno and "keypoints" in anno[0]:
@@ -89,7 +94,7 @@ class ConvertCocoPolysToMask(object):
 
         keep = (boxes[:, 3] > boxes[:, 1]) & (boxes[:, 2] > boxes[:, 0])
         boxes = boxes[keep]
-        classes = classes[keep]
+
         if self.return_masks:
             masks = masks[keep]
         if keypoints is not None:
@@ -97,7 +102,6 @@ class ConvertCocoPolysToMask(object):
 
         target = {}
         target["boxes"] = boxes
-        target["labels"] = classes
         if self.return_masks:
             target["masks"] = masks
         target["image_id"] = image_id
@@ -109,7 +113,8 @@ class ConvertCocoPolysToMask(object):
         iscrowd = torch.tensor([obj["iscrowd"] if "iscrowd" in obj else 0 for obj in anno])
         target["area"] = area[keep]
         target["iscrowd"] = iscrowd[keep]
-
+        target['desc_em'] = desc_em
+        target['desc_ms'] = desc_ms
         target["orig_size"] = torch.as_tensor([int(h), int(w)])
         target["size"] = torch.as_tensor([int(h), int(w)])
 
@@ -127,7 +132,7 @@ def make_coco_transforms(image_set):
 
     if image_set == 'train':
         return T.Compose([
-            #T.RandomHorizontalFlip(),
+            T.RandomHorizontalFlip(),
             T.RandomSelect(
                 T.RandomResize(scales, max_size=544),
                 T.Compose([
@@ -153,10 +158,10 @@ def build(image_set):
     mode = 'instances'
     if (image_set == 'train'):
         ann_file = cf.data_anno_train
-        img_folder = cf.data_image_train
+        img_folder = cf.data_image
     if (image_set == 'val'):
         ann_file = cf.data_anno_valid
-        img_folder = cf.data_image_train
+        img_folder = cf.data_image
     
     dataset = CocoDetection(img_folder, ann_file, transforms=make_coco_transforms(image_set), return_masks=False)
     return dataset
@@ -186,7 +191,7 @@ def rescale_bboxes(out_bbox, size):
 def build_example():
     trainDataset = build('train')
     print(len(trainDataset))
-    index = 10
+    index = 234
     imageTransform, target = trainDataset.__getitem__(index)
     bboxes_scaled = rescale_bboxes(target['boxes'], (imageTransform.shape[2], imageTransform.shape[1]))
     print(imageTransform.shape)
@@ -204,5 +209,5 @@ def build_example():
     plt.show()
 
 
-if __name__ == "__main__":
-    build_example()
+# if __name__ == "__main__":
+#     build_example()
