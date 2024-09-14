@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 import torchvision.models as models
 import torch.nn.functional as F
-from cnn_encoder import build_encoder
-from decoder import build_decoder
+from .cnn_encoder import build_encoder
+from .decoder import build_decoder
 
 class OBDE(nn.Module):
     def __init__(self, cnn_encoder, decodder):

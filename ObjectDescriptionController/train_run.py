@@ -1,5 +1,5 @@
-from datasets.data import build_data, vocab, collate_fn
-from model.obde import build_model
+from .datasets.data import build_data, vocab, collate_fn
+from .model.obde import build_model
 from torch.utils.data import DataLoader
 import datetime
 import time
@@ -165,12 +165,12 @@ def main():
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     scheduler = StepLR(optimizer, step_size=step_size, gamma=gamma)
 
-    print("Start training")
-    start_time = time.time()
-    train_run(model, criterion, train_loader, val_loader, vocab, num_epochs, device, optimizer, scheduler, save_dir)
-    total_time = time.time() - start_time
-    total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-    print('Training time {}'.format(total_time_str))
+    # print("Start training")
+    # start_time = time.time()
+    # train_run(model, criterion, train_loader, val_loader, vocab, num_epochs, device, optimizer, scheduler, save_dir)
+    # total_time = time.time() - start_time
+    # total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+    # print('Training time {}'.format(total_time_str))
 
 if __name__ == "__main__":
     main()
