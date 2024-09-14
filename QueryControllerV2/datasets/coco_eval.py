@@ -53,7 +53,7 @@ class CocoEvaluator(object):
 
     def synchronize_between_processes(self):
         for iou_type in self.iou_types:
-            self.eval_imgs[iou_type] = np.concatenate(self.eval_imgs[iou_type], 2)
+            self.eval_imgs[iou_type] = np.concatenate(self.eval_imgs[iou_type], 1)
             create_common_coco_eval(self.coco_eval[iou_type], self.img_ids, self.eval_imgs[iou_type])
 
     def accumulate(self):
@@ -79,12 +79,14 @@ class CocoEvaluator(object):
 
             boxes = prediction["boxes"]
             boxes = convert_to_xywh(boxes).tolist()
-            scores = prediction["scores"].tolist()
+            # scores = prediction["scores"].tolist()
+            scores = [1.0] * len(prediction["boxes"])
 
             coco_results.extend(
                 [
                     {
                         "image_id": original_id,
+                        "category_id": 1,
                         "bbox": box,
                         "score": scores[k],
                     }
@@ -112,7 +114,7 @@ def merge(img_ids, eval_imgs):
         merged_eval_imgs.append(p)
 
     merged_img_ids = np.array(merged_img_ids)
-    merged_eval_imgs = np.concatenate(merged_eval_imgs, 2)
+    merged_eval_imgs = np.concatenate(merged_eval_imgs, 1)
 
     # keep only unique (and in sorted order) images
     merged_img_ids, idx = np.unique(merged_img_ids, return_index=True)
