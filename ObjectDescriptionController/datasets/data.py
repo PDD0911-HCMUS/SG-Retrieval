@@ -1,21 +1,30 @@
+import os
 import torch
 from torch.utils.data import Dataset, DataLoader
 from PIL import Image
 import torchvision.transforms as transforms
 from collections import Counter
 import nltk
-nltk.download('punkt') 
+
+nltk_data_dir = os.path.expanduser('/radish/phamd/duypd-proj/SG-Retrieval/nltk_data')
+nltk.data.path.append(nltk_data_dir)
+nltk.download('punkt_tab', download_dir=nltk_data_dir) 
+
 from torch.nn.utils.rnn import pad_sequence
 import json
 
-path_to_images = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/Datasets/VisualGenome/VG_100K/'
+path_to_images = 'Datasets/VisualGenome/VG_100K_cropped/'
 
-with open('/home/duypd/ThisPC-DuyPC/SG-Retrieval/Datasets/VisualGenome/anno_org/captions_object_train.json', 'r') as f:
+with open('Datasets/VisualGenome/anno_org/caption.json', 'r') as f:
+    data_anno = json.load(f)
+annotations_vocab = data_anno['annotations']
+
+with open('Datasets/VisualGenome/anno_org/captions_object_train.json', 'r') as f:
     data_train = json.load(f)
 images_train = data_train['images']
 annotations_train = data_train['annotations']
 
-with open('/home/duypd/ThisPC-DuyPC/SG-Retrieval/Datasets/VisualGenome/anno_org/captions_object_val.json', 'r') as f:
+with open('Datasets/VisualGenome/anno_org/captions_object_val.json', 'r') as f:
     data_val = json.load(f)
 images_val = data_val['images']
 annotations_val = data_val['annotations']
@@ -101,6 +110,7 @@ class Vocabulary:
 
 
 vocab = Vocabulary(freq_threshold=5)
+vocab.build_vocabulary([anno['caption'] for anno in annotations_vocab])
 
 def collate_fn(batch):
     images = []
@@ -116,7 +126,6 @@ def collate_fn(batch):
     return images, captions
 
 def build_data():
-    vocab.build_vocabulary([anno['caption'] for anno in annotations_train])
     
     train_dataset = CaptionDataset(images_train, annotations_train, vocab, transform=train_transform)
     val_dataset = CaptionDataset(images_val, annotations_val, vocab, transform=val_transform)

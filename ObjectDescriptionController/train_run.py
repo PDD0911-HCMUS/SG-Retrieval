@@ -1,14 +1,25 @@
 from .datasets.data import build_data, vocab, collate_fn
 from .model.obde import build_model
-from torch.utils.data import DataLoader
+import os
+import json
+from tqdm import tqdm
 import datetime
 import time
+from nltk.translate.bleu_score import corpus_bleu
+from torch.utils.data import DataLoader
 import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
 import torch
-from nltk.translate.bleu_score import corpus_bleu
-import os
-import json
+import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "2,3"
+
+def setup(rank, world_size):
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)
+
+def cleanup():
+    dist.destroy_process_group()
 
 def greedy_decode(model, image, max_len, vocab):
     model.eval()
@@ -43,7 +54,7 @@ def validate_and_evaluate(model, data_val, criterion, vocab, device, max_len=20)
     hypotheses = []
 
     with torch.no_grad():
-        for images, captions in data_val:
+        for images, captions in tqdm(data_val):
             images, captions = images.to(device), captions.to(device)
             outputs = model(images, captions[:, :-1])
             loss = criterion(outputs, captions[:, 1:])
@@ -75,9 +86,10 @@ def train_run(model, criterion, data_train, data_val, vocab, num_epochs, device,
     }
 
     for epoch in range(num_epochs):
+        print(f"Training Epoch [{epoch+1}/{num_epochs}]")
         model.train()
         total_loss = 0
-        for images, captions in data_train:
+        for images, captions in tqdm(data_train):
             images, captions = images.to(device), captions.to(device)
 
             outputs = model(images, captions[:, :-1])
@@ -91,6 +103,8 @@ def train_run(model, criterion, data_train, data_val, vocab, num_epochs, device,
 
         scheduler.step()
         avg_train_loss = total_loss / len(data_train)
+
+        print(f"Validation Epoch [{epoch+1}/{num_epochs}]")
         avg_val_loss, bleu1, bleu2, bleu3, bleu4 = validate_and_evaluate(model, data_val, criterion, vocab, device)
 
         print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {avg_train_loss:.4f}, Validation Loss: {avg_val_loss:.4f}")
@@ -115,13 +129,15 @@ def train_run(model, criterion, data_train, data_val, vocab, num_epochs, device,
 
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f'Device is being used: {device}')
+    world_size = 2
     batch_size = 32
 
-    embed_size = 256
+    embed_size = 128
     vocab_size = len(vocab)
     num_heads = 8
-    hidden_dim = 512
-    num_layers = 6
+    hidden_dim = 128
+    num_layers = 3
     pad_idx = vocab.stoi["<PAD>"]
 
     lr = 0.001
@@ -129,7 +145,7 @@ def main():
     gamma  = 0.1
     step_size = 5
     num_epochs = 30
-    save_dir = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/ckpt/obde/'
+    save_dir = 'ckpt/obde/'
     
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
@@ -140,7 +156,7 @@ def main():
         dataset=train_ds, 
         batch_size=batch_size, 
         shuffle=True, 
-        num_workers=4, 
+        num_workers=0, 
         collate_fn=collate_fn
     )
 
@@ -148,7 +164,7 @@ def main():
         dataset=val_ds, 
         batch_size=batch_size, 
         shuffle=False,
-        num_workers=4, 
+        num_workers=0, 
         collate_fn=collate_fn
     )
 
@@ -165,12 +181,17 @@ def main():
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     scheduler = StepLR(optimizer, step_size=step_size, gamma=gamma)
 
-    # print("Start training")
-    # start_time = time.time()
-    # train_run(model, criterion, train_loader, val_loader, vocab, num_epochs, device, optimizer, scheduler, save_dir)
-    # total_time = time.time() - start_time
-    # total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-    # print('Training time {}'.format(total_time_str))
+    vocab_size = len(vocab)
+
+    # Thêm kiểm tra cho từng batch dữ liệu
+    print(vocab_size)
+
+    print("Start training")
+    start_time = time.time()
+    train_run(model, criterion, train_loader, val_loader, vocab, num_epochs, device, optimizer, scheduler, save_dir)
+    total_time = time.time() - start_time
+    total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+    print('Training time {}'.format(total_time_str))
 
 if __name__ == "__main__":
     main()

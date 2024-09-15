@@ -25,7 +25,7 @@ class SetCriterion(nn.Module):
     def forward(self, outputs, targets):
         # Reshape outputs and targets for loss calculation
         outputs = outputs.view(-1, outputs.size(-1))  # [batch_size * seq_len, vocab_size]
-        targets = targets.view(-1)  # [batch_size * seq_len]
+        targets = targets.reshape(-1)  # [batch_size * seq_len]
 
         loss = self.criterion(outputs, targets)
         return loss

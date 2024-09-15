@@ -8,3 +8,5 @@ Datasets
 *.txt
 **/fashion-data/
 *.pth
+
+nltk_data/*
