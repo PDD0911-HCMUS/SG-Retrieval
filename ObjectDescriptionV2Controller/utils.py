@@ -1,6 +1,5 @@
 import os
 import numpy as np
-import h5py
 import json
 import torch
 # from scipy.misc import imread, imresize
@@ -252,14 +251,21 @@ def accuracy(scores, targets, k):
     """
     Computes top-k accuracy, from predicted and true labels.
 
-    :param scores: scores from the model
-    :param targets: true labels
+    :param scores: scores from the model [batch_size * decode_lengths, vocab_size]
+    :param targets: true labels [batch_size * decode_lengths]
     :param k: k in top-k accuracy
     :return: top-k accuracy
     """
 
-    batch_size = targets.size(0)
-    _, ind = scores.topk(k, 1, True, True)
-    correct = ind.eq(targets.view(-1, 1).expand_as(ind))
-    correct_total = correct.view(-1).float().sum()  # 0D tensor
+    batch_size = targets.size(0)  # batch_size * decode_lengths
+    _, ind = scores.topk(k, 1, True, True)  # Get top-k predictions with shape [batch_size * decode_lengths, k]
+
+    # Compare each element in targets with top-k predictions
+    correct = (ind == targets.unsqueeze(1))  # Check if targets match any of the top-k predictions
+
+    # Calculate total correct predictions
+    correct_total = correct.view(-1).float().sum()
     return correct_total.item() * (100.0 / batch_size)
+
+
+

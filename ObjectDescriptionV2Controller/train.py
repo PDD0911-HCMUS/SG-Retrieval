@@ -4,15 +4,17 @@ import torch.optim
 import torch.utils.data
 import torchvision.transforms as transforms
 from torch import nn
-from torch.nn.utils.rnn import pack_padded_sequence
-from models import Encoder, DecoderWithAttention
-from datasets import *
-from utils import *
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+from .models import Encoder, DecoderWithAttention
+from .datasets import *
+from .utils import *
 from nltk.translate.bleu_score import corpus_bleu
 
 # Data parameters
-data_folder = '/media/ssd/caption data'  # folder with data files saved by create_input_files.py
-data_name = 'coco_5_cap_per_img_5_min_word_freq'  # base name shared by data files
+data_folder = 'Datasets/VisualGenome/anno_org'
+data_name = 'coco'
+json_folder = 'Datasets/VisualGenome/anno_org'
+image_folder = 'Datasets/VisualGenome/VG_100K_cropped'
 
 # Model parameters
 emb_dim = 512  # dimension of word embeddings
@@ -24,7 +26,7 @@ cudnn.benchmark = True  # set to true only if inputs to model are fixed size; ot
 
 # Training parameters
 start_epoch = 0
-epochs = 120  # number of epochs to train for (if early stopping is not triggered)
+epochs = 1  # number of epochs to train for (if early stopping is not triggered)
 epochs_since_improvement = 0  # keeps track of number of epochs since there's been an improvement in validation BLEU
 batch_size = 32
 workers = 1  # for data-loading; right now, only 1 works with h5py
@@ -89,11 +91,15 @@ def main():
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
     train_loader = torch.utils.data.DataLoader(
-        CaptionDataset(data_folder, data_name, 'TRAIN', transform=transforms.Compose([normalize])),
+        CaptionDataset(json_folder=json_folder, image_folder=image_folder, data_name=data_name, split='TRAIN',
+                    transform=transforms.Compose([transforms.Resize((256, 256)), transforms.ToTensor(), normalize])),
         batch_size=batch_size, shuffle=True, num_workers=workers, pin_memory=True)
+
+    # DataLoader cho tập VAL
     val_loader = torch.utils.data.DataLoader(
-        CaptionDataset(data_folder, data_name, 'VAL', transform=transforms.Compose([normalize])),
-        batch_size=batch_size, shuffle=True, num_workers=workers, pin_memory=True)
+        CaptionDataset(json_folder=json_folder, image_folder=image_folder, data_name=data_name, split='VAL',
+                    transform=transforms.Compose([transforms.Resize((256, 256)), transforms.ToTensor(), normalize])),
+        batch_size=batch_size, shuffle=False, num_workers=workers, pin_memory=True)
 
     # Epochs
     for epoch in range(start_epoch, epochs):
@@ -176,11 +182,14 @@ def train(train_loader, encoder, decoder, criterion, encoder_optimizer, decoder_
 
         # Remove timesteps that we didn't decode at, or are pads
         # pack_padded_sequence is an easy trick to do this
-        scores, _ = pack_padded_sequence(scores, decode_lengths, batch_first=True)
-        targets, _ = pack_padded_sequence(targets, decode_lengths, batch_first=True)
+        # scores, _ = pack_padded_sequence(scores, decode_lengths, batch_first=True)
+        # targets, _ = pack_padded_sequence(targets, decode_lengths, batch_first=True)
 
-        # Calculate loss
-        loss = criterion(scores, targets)
+        packed_scores = pack_padded_sequence(scores, decode_lengths, batch_first=True, enforce_sorted=False)
+        packed_targets = pack_padded_sequence(targets, decode_lengths, batch_first=True, enforce_sorted=False)
+
+        # unpack lại chuỗi để lấy giá trị .data từ PackedSequence (dùng để tính loss)
+        loss = criterion(packed_scores.data, packed_targets.data)
 
         # Add doubly stochastic attention regularization
         loss += alpha_c * ((1. - alphas.sum(dim=1)) ** 2).mean()
