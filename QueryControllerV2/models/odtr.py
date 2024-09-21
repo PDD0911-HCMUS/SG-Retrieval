@@ -14,12 +14,12 @@ from util.misc import (NestedTensor, nested_tensor_from_tensor_list,
 from .backbone import build_backbone
 from .matcher import build_matcher
 from .transformer import build_transformer
-from transformers import GPT2LMHeadModel
+from transformers import BertTokenizer
 
 
-class DETR(nn.Module):
+class ODTR(nn.Module):
     """ This is the DETR module that performs object detection """
-    def __init__(self, backbone, transformer, num_queries, aux_loss=False):
+    def __init__(self, backbone, transformer, num_classes, num_queries, aux_loss=False):
         """ Initializes the model.
         Parameters:
             backbone: torch module of the backbone to be used. See backbone.py
@@ -30,16 +30,33 @@ class DETR(nn.Module):
             aux_loss: True if auxiliary decoding losses (loss at each decoder layer) are to be used.
         """
         super().__init__()
-        self.model_llm = GPT2LMHeadModel.from_pretrained('distilgpt2')
-        self.projection_layer = nn.Linear(transformer.d_model, self.model_llm.config.n_embd)
+        tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+        self.seq_len = 7
         self.num_queries = num_queries
         self.transformer = transformer
         hidden_dim = transformer.d_model
+        self.class_embed = nn.Linear(hidden_dim, num_classes + 1)
         self.bbox_embed = MLP(hidden_dim, hidden_dim, 4, 3)
         self.query_embed = nn.Embedding(num_queries, hidden_dim)
+        self.desc_embed = nn.Linear(hidden_dim, tokenizer.vocab_size)
+
         self.input_proj = nn.Conv2d(backbone.num_channels, hidden_dim, kernel_size=1)
         self.backbone = backbone
         self.aux_loss = aux_loss
+
+        self.maps_conv = nn.Sequential(torch.nn.Upsample(size=(28, 28)),
+                                        nn.Conv2d(2, 64, kernel_size=3, stride=2, padding=3, bias=True),
+                                        nn.ReLU(inplace=True),
+                                        nn.BatchNorm2d(64),
+                                        nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
+                                        nn.Conv2d(64, 32, kernel_size=3, stride=1, padding=1, bias=True),
+                                        nn.ReLU(inplace=True),
+                                        nn.BatchNorm2d(32))
+        self.maps_fc = nn.Sequential(nn.Linear(1024, 512),
+                                        nn.ReLU(inplace=True),
+                                        nn.Linear(512, 128))
+        
+        self.desc_embed = nn.Linear(128, tokenizer.vocab_size)
 
     def forward(self, samples: NestedTensor):
         """ The forward expects a NestedTensor, which consists of:
@@ -47,6 +64,8 @@ class DETR(nn.Module):
                - samples.mask: a binary mask of shape [batch_size x H x W], containing 1 on padded pixels
 
             It returns a dict with the following elements:
+               - "pred_logits": the classification logits (including no-object) for all queries.
+                                Shape= [batch_size x num_queries x (num_classes + 1)]
                - "pred_boxes": The normalized boxes coordinates for all queries, represented as
                                (center_x, center_y, height, width). These values are normalized in [0, 1],
                                relative to the size of each individual image (disregarding possible padding).
@@ -60,31 +79,35 @@ class DETR(nn.Module):
 
         src, mask = features[-1].decompose()
         assert mask is not None
-        hs = self.transformer(self.input_proj(src), mask, self.query_embed.weight, pos[-1])[0]
-        # Project the transformer output to the GPT-2 input embedding size
-        
-        projected_hs = self.projection_layer(hs[-1])  # Adjust for GPT-2 input size
+        hs, mem, maps = self.transformer(self.input_proj(src), mask, self.query_embed.weight, pos[-1])
+        maps = maps.detach()
 
-        batch_size = projected_hs.size(0)  # Số lượng ảnh trong batch (batch_size)
-        num_queries = projected_hs.size(1) 
+        maps = self.maps_conv(maps.view(-1, 2, src.shape[-2],src.shape[-1])).view(hs.shape[0], hs.shape[1], hs.shape[2],-1)
+        maps = self.maps_fc(maps)
 
-        projected_hs = projected_hs.unsqueeze(2).expand(-1, -1, 10, -1)  # Thêm chiều seq_len
-        projected_hs = projected_hs.view(-1, 10, 768)
+        desc = []
+        for _ in range(self.seq_len):
+            o = self.desc_embed(maps)  # [layers, batch_size, num_queries, vocab_size]
+            desc.append(o)
 
+        outputs_desc = torch.stack(desc, dim=3)
+        outputs_class = self.class_embed(hs)
         outputs_coord = self.bbox_embed(hs).sigmoid()
-        outputs_desc = self.model_llm(inputs_embeds=projected_hs)
-        outputs_desc = outputs_desc.logits.view(batch_size, num_queries, 10, -1)
-        out = {'pred_boxes': outputs_coord[-1], 'pred_desc': outputs_desc }
+
+        outputs_class = self.class_embed(hs)
+        outputs_coord = self.bbox_embed(hs).sigmoid()
+        out = {'pred_logits': outputs_class[-1], 'pred_boxes': outputs_coord[-1], 'pred_desc': outputs_desc[-1]}
         if self.aux_loss:
-            out['aux_outputs'] = self._set_aux_loss(outputs_coord)
+            out['aux_outputs'] = self._set_aux_loss(outputs_class, outputs_coord, outputs_desc)
         return out
 
     @torch.jit.unused
-    def _set_aux_loss(self, outputs_coord):
+    def _set_aux_loss(self, outputs_class, outputs_coord, outputs_desc):
         # this is a workaround to make torchscript happy, as torchscript
         # doesn't support dictionary with non-homogeneous values, such
         # as a dict having both a Tensor and a list.
-        return [{'pred_boxes': a} for a in outputs_coord[:-1]]
+        return [{'pred_logits': a, 'pred_boxes': b, 'pred_desc': c}
+                for a, b, c in zip(outputs_class[:-1], outputs_coord[:-1], outputs_desc[:-1])]
 
 
 class SetCriterion(nn.Module):
@@ -93,7 +116,7 @@ class SetCriterion(nn.Module):
         1) we compute hungarian assignment between ground truth boxes and the outputs of the model
         2) we supervise each pair of matched ground-truth / prediction (supervise class and box)
     """
-    def __init__(self, matcher, weight_dict, losses):
+    def __init__(self, num_classes, matcher, weight_dict, eos_coef, losses):
         """ Create the criterion.
         Parameters:
             num_classes: number of object categories, omitting the special no-object category
@@ -103,47 +126,89 @@ class SetCriterion(nn.Module):
             losses: list of all the losses to be applied. See get_loss for list of available losses.
         """
         super().__init__()
+        self.num_classes = num_classes
         self.matcher = matcher
         self.weight_dict = weight_dict
+        self.eos_coef = eos_coef
         self.losses = losses
+        empty_weight = torch.ones(self.num_classes + 1)
+        empty_weight[-1] = self.eos_coef
+        self.register_buffer('empty_weight', empty_weight)
 
-    def loss_text(self, outputs, targets, indices, num_boxes):
-        """Compute the loss for the text descriptions (Cross-Entropy Loss for generated text).
-        targets dicts must contain the key 'desc_em' (tokenized descriptions) and 'desc_ms' (attention mask).
+    def loss_labels(self, outputs, targets, indices, num_boxes, log=True):
+        """Classification loss (NLL)
+        targets dicts must contain the key "labels" containing a tensor of dim [nb_target_boxes]
         """
-        assert 'pred_desc' in outputs
+        assert 'pred_logits' in outputs
+        src_logits = outputs['pred_logits']
+
         idx = self._get_src_permutation_idx(indices)
-        
-        # Get predicted text logits
-        pred_text_logits = outputs['pred_desc'][idx]  # Shape: (batch_size * num_queries, seq_len, vocab_size)
-        
-        # Get ground truth tokenized descriptions and masks
-        target_text = torch.cat([t['desc_em'][i] for t, (_, i) in zip(targets, indices)], dim=0)  # [batch_size * num_queries, seq_len]
-        attention_mask = torch.cat([t['desc_ms'][i] for t, (_, i) in zip(targets, indices)], dim=0)  # [batch_size * num_queries, seq_len]
-        
-        # Flatten the predicted logits and target_text for CrossEntropyLoss
-        pred_text_logits = pred_text_logits.view(-1, pred_text_logits.size(-1))  # [batch_size * num_queries * seq_len, vocab_size]
-        target_text = target_text.view(-1)  # [batch_size * num_queries * seq_len]
-        attention_mask = attention_mask.view(-1)  # [batch_size * num_queries * seq_len]
+        target_classes_o = torch.cat([t["labels"][J] for t, (_, J) in zip(targets, indices)])
+        target_classes = torch.full(src_logits.shape[:2], self.num_classes,
+                                    dtype=torch.int64, device=src_logits.device)
+        target_classes[idx] = target_classes_o
 
-        # Compute Cross-Entropy Loss
-        loss_fct = torch.nn.CrossEntropyLoss(reduction='none')
-        loss_text = loss_fct(pred_text_logits, target_text)
+        loss_ce = F.cross_entropy(src_logits.transpose(1, 2), target_classes, self.empty_weight)
+        losses = {'loss_ce': loss_ce}
 
-        # Mask the loss to exclude padding tokens
-        loss_text = loss_text * attention_mask  # Zero out loss where attention mask is 0
-        loss_text = loss_text.sum() / num_boxes  # Normalize by number of boxes
-
-        losses = {'loss_text': loss_text}
+        if log:
+            # TODO this should probably be a separate loss, not hacked in this one here
+            losses['class_error'] = 100 - accuracy(src_logits[idx], target_classes_o)[0]
         return losses
 
+    def loss_desc(self, outputs, targets, indices, num_boxes, log=True):
+        """
+        Compute the Cross-Entropy loss for the text descriptions (pred_desc).
+        `outputs` should contain `pred_desc`, a tensor of size [batch_size, num_queries, seq_length, vocab_size].
+        `targets` should contain `desc_emb`, a tensor of tokenized descriptions, and `desc_msk`, the corresponding masks.
+        """
+        assert 'pred_desc' in outputs, "Outputs must contain 'pred_desc' for description loss"
+        src_desc = outputs['pred_desc']  # Shape: [batch_size, num_queries, seq_length, vocab_size]
+
+        # Get the permutation indices for matching the predictions with the targets
+        idx = self._get_src_permutation_idx(indices)
+        src_desc = src_desc[idx]
+
+        # Extract the target descriptions (desc_emb) and masks (desc_msk) for the matched queries
+        target_desc = torch.cat([t["desc_emb"][J] for t, (_, J) in zip(targets, indices)], dim=0)  # Target descriptions
+        target_msk = torch.cat([t["desc_msk"][J] for t, (_, J) in zip(targets, indices)], dim=0)  # Target masks
+
+        # Reshape predictions and targets for Cross-Entropy computation
+        # src_desc: [batch_size * num_queries, seq_length, vocab_size]
+        # target_desc: [batch_size * num_queries, seq_length]
+        # batch_size, num_queries, seq_length, vocab_size = src_desc.shape
+        # src_desc = src_desc.view(batch_size * num_queries, seq_length, vocab_size)  # Flatten to [total_queries, seq_length, vocab_size]
+        # target_desc = target_desc.view(batch_size * num_queries, seq_length)  # Flatten to [total_queries, seq_length]
+        # target_msk = target_msk.view(batch_size * num_queries, seq_length)  # Flatten to [total_queries, seq_length]
+
+        # Cross-Entropy Loss for text prediction (ignoring padding tokens)
+        loss_desc = F.cross_entropy(src_desc.transpose(2, 1), target_desc, reduction='none')  # Shape: [total_queries, seq_length]
+
+        # Apply mask to ignore loss for padding tokens
+        loss_desc = (loss_desc * target_msk).sum() / target_msk.sum()  # Normalize by the number of valid tokens
+
+        losses = {'loss_desc': loss_desc}
+
+        if log:
+            # Optionally log description prediction accuracy
+            predicted_desc = src_desc.argmax(dim=-1)  # Get predicted tokens
+            correct_pred = (predicted_desc == target_desc) * target_msk  # Masked accuracy
+            total_correct = correct_pred.sum()
+            total_valid = target_msk.sum()
+            losses['desc_accuracy'] = total_correct.float() / total_valid.float() * 100.0
+
+        return losses
+    
     @torch.no_grad()
     def loss_cardinality(self, outputs, targets, indices, num_boxes):
-        """ Compute the cardinality error for the number of predicted non-empty boxes."""
-        pred_boxes = outputs['pred_boxes']
-        device = pred_boxes.device
-        tgt_lengths = torch.as_tensor([len(v["boxes"]) for v in targets], device=device)
-        card_pred = (pred_boxes[:, :, :].sum(-1) > 0).sum(1)
+        """ Compute the cardinality error, ie the absolute error in the number of predicted non-empty boxes
+        This is not really a loss, it is intended for logging purposes only. It doesn't propagate gradients
+        """
+        pred_logits = outputs['pred_logits']
+        device = pred_logits.device
+        tgt_lengths = torch.as_tensor([len(v["labels"]) for v in targets], device=device)
+        # Count the number of predictions that are NOT "no-object" (which is the last class)
+        card_pred = (pred_logits.argmax(-1) != pred_logits.shape[-1] - 1).sum(1)
         card_err = F.l1_loss(card_pred.float(), tgt_lengths.float())
         losses = {'cardinality_error': card_err}
         return losses
@@ -183,9 +248,10 @@ class SetCriterion(nn.Module):
 
     def get_loss(self, loss, outputs, targets, indices, num_boxes, **kwargs):
         loss_map = {
+            'labels': self.loss_labels,
             'cardinality': self.loss_cardinality,
             'boxes': self.loss_boxes,
-            'text': self.loss_text
+            'desc': self.loss_desc
         }
         assert loss in loss_map, f'do you really want to compute {loss} loss?'
         return loss_map[loss](outputs, targets, indices, num_boxes, **kwargs)
@@ -203,7 +269,7 @@ class SetCriterion(nn.Module):
         indices = self.matcher(outputs_without_aux, targets)
 
         # Compute the average number of target boxes accross all nodes, for normalization purposes
-        num_boxes = sum(len(t["boxes"]) for t in targets)
+        num_boxes = sum(len(t["labels"]) for t in targets)
         num_boxes = torch.as_tensor([num_boxes], dtype=torch.float, device=next(iter(outputs.values())).device)
         if is_dist_avail_and_initialized():
             torch.distributed.all_reduce(num_boxes)
@@ -219,10 +285,16 @@ class SetCriterion(nn.Module):
             for i, aux_outputs in enumerate(outputs['aux_outputs']):
                 indices = self.matcher(aux_outputs, targets)
                 for loss in self.losses:
-                    if loss != 'text':
-                        l_dict = self.get_loss(loss, aux_outputs, targets, indices, num_boxes)
-                        l_dict = {k + f'_{i}': v for k, v in l_dict.items()}
-                        losses.update(l_dict)
+                    if loss == 'masks':
+                        # Intermediate masks losses are too costly to compute, we ignore them.
+                        continue
+                    kwargs = {}
+                    if loss == 'labels':
+                        # Logging is enabled only for the last layer
+                        kwargs = {'log': False}
+                    l_dict = self.get_loss(loss, aux_outputs, targets, indices, num_boxes, **kwargs)
+                    l_dict = {k + f'_{i}': v for k, v in l_dict.items()}
+                    losses.update(l_dict)
 
         return losses
 
@@ -238,10 +310,13 @@ class PostProcess(nn.Module):
                           For evaluation, this must be the original image size (before any data augmentation)
                           For visualization, this should be the image size after data augment, but before padding
         """
-        out_bbox = outputs['pred_boxes']
+        out_logits, out_bbox = outputs['pred_logits'], outputs['pred_boxes']
 
-        assert len(out_bbox) == len(target_sizes)
+        assert len(out_logits) == len(target_sizes)
         assert target_sizes.shape[1] == 2
+
+        prob = F.softmax(out_logits, -1)
+        scores, labels = prob[..., :-1].max(-1)
 
         # convert to [x0, y0, x1, y1] format
         boxes = box_ops.box_cxcywh_to_xyxy(out_bbox)
@@ -250,9 +325,7 @@ class PostProcess(nn.Module):
         scale_fct = torch.stack([img_w, img_h, img_w, img_h], dim=1)
         boxes = boxes * scale_fct[:, None, :]
 
-        descriptions = outputs.get('pred_desc', None)
-        results = [{'boxes': b, 'descriptions': d if descriptions is not None else None} 
-                   for b, d in zip(boxes, descriptions)] if descriptions is not None else [{'boxes': b} for b in boxes]
+        results = [{'scores': s, 'labels': l, 'boxes': b} for s, l, b in zip(scores, labels, boxes)]
 
         return results
 
@@ -273,39 +346,44 @@ class MLP(nn.Module):
 
 
 def build(args):
+    # the `num_classes` naming here is somewhat misleading.
+    # it indeed corresponds to `max_obj_id + 1`, where max_obj_id
+    # is the maximum id for a class in your dataset. For example,
+    # COCO has a max_obj_id of 90, so we pass `num_classes` to be 91.
+    # As another example, for a dataset that has a single class with id 1,
+    # you should pass `num_classes` to be 2 (max_obj_id + 1).
+    
+    num_classes = 2
+
     device = torch.device(args.device)
 
-    # Xây dựng backbone và transformer cho mô hình
     backbone = build_backbone(args)
+
     transformer = build_transformer(args)
 
-    # Tạo mô hình DETR mà không cần num_classes
-    model = DETR(
+    model = ODTR(
         backbone,
         transformer,
+        num_classes=num_classes,
         num_queries=args.num_queries,
         aux_loss=args.aux_loss,
     )
-    
     matcher = build_matcher(args)
-    
-    weight_dict = {'loss_bbox': args.bbox_loss_coef}
+    weight_dict = {'loss_ce': 1, 'loss_bbox': args.bbox_loss_coef}
     weight_dict['loss_giou'] = args.giou_loss_coef
-    weight_dict['loss_text'] = args.text_loss_coef
     
-
+    # TODO this is a hack
     if args.aux_loss:
         aux_weight_dict = {}
         for i in range(args.dec_layers - 1):
             aux_weight_dict.update({k + f'_{i}': v for k, v in weight_dict.items()})
         weight_dict.update(aux_weight_dict)
 
-    
-    losses = ['boxes', 'cardinality', 'text']
+    losses = ['labels', 'boxes', 'cardinality', 'desc']
 
-    criterion = SetCriterion(matcher=matcher, weight_dict=weight_dict, losses=losses)
+    criterion = SetCriterion(num_classes, matcher=matcher, weight_dict=weight_dict,
+                             eos_coef=args.eos_coef, losses=losses)
     criterion.to(device)
-    
     postprocessors = {'bbox': PostProcess()}
 
     return model, criterion, postprocessors

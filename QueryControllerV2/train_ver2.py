@@ -58,15 +58,19 @@ def get_args_parser():
     parser.add_argument('--no_aux_loss', dest='aux_loss', action='store_false',
                         help="Disables auxiliary decoding losses (loss at each layer)")
     # * Matcher
+    parser.add_argument('--set_cost_class', default=1, type=float,
+                        help="Class coefficient in the matching cost")
     parser.add_argument('--set_cost_bbox', default=5, type=float,
                         help="L1 box coefficient in the matching cost")
     parser.add_argument('--set_cost_giou', default=2, type=float,
                         help="giou box coefficient in the matching cost")
     # * Loss coefficients
+    parser.add_argument('--mask_loss_coef', default=1, type=float)
+    parser.add_argument('--dice_loss_coef', default=1, type=float)
     parser.add_argument('--bbox_loss_coef', default=5, type=float)
     parser.add_argument('--giou_loss_coef', default=2, type=float)
-    parser.add_argument('--text_loss_coef', default=1, type=float,
-                        help="Coefficient for the text generation loss")
+    parser.add_argument('--eos_coef', default=0.1, type=float,
+                        help="Relative classification weight of the no-object class")
 
     # dataset parameters
     parser.add_argument('--dataset_file', default='coco')
@@ -75,7 +79,7 @@ def get_args_parser():
 
     parser.add_argument('--output_dir', default='',
                         help='path where to save, empty for no saving')
-    parser.add_argument('--device', default='cuda',
+    parser.add_argument('--device', default='cpu',
                         help='device to use for training / testing')
     parser.add_argument('--seed', default=42, type=int)
     parser.add_argument('--resume', default='', help='resume from checkpoint')
