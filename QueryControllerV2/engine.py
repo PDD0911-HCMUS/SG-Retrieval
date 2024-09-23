@@ -99,29 +99,6 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
         orig_target_sizes = torch.stack([t["orig_size"] for t in targets], dim=0)
         results = postprocessors['bbox'](outputs, orig_target_sizes)
 
-        if 'pred_desc' in outputs:
-            pred_desc = outputs['pred_desc']  # [batch_size, num_queries, seq_length, vocab_size]
-            target_desc = torch.cat([t['desc_emb'] for t in targets], dim=0)  # Target descriptions
-            target_msk = torch.cat([t['desc_msk'] for t in targets], dim=0)  # Target masks
-
-            # Flatten to [batch_size * num_queries, seq_length]
-            batch_size, num_queries, seq_length, vocab_size = pred_desc.shape
-            pred_desc = pred_desc.view(batch_size * num_queries, seq_length, vocab_size)
-            target_desc = target_desc.view(batch_size * num_queries, seq_length)
-            target_msk = target_msk.view(batch_size * num_queries, seq_length)
-
-            # Cross-Entropy Loss
-            desc_loss = F.cross_entropy(pred_desc.transpose(1, 2), target_desc, reduction='none')
-
-            # Apply mask
-            desc_loss = (desc_loss * target_msk).sum() / target_msk.sum()
-            metric_logger.update(desc_loss=desc_loss.item())
-
-            pred_desc_tokens = pred_desc.argmax(dim=-1)  # [batch_size * num_queries, seq_length]
-            correct_desc = (pred_desc_tokens == target_desc) * target_msk
-            desc_accuracy = correct_desc.sum() / target_msk.sum()
-            metric_logger.update(desc_accuracy=desc_accuracy.item() * 100)
-
         res = {target['image_id'].item(): output for target, output in zip(targets, results)}
         if coco_evaluator is not None:
             coco_evaluator.update(res)
