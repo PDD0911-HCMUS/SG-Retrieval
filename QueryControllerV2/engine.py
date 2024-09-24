@@ -6,6 +6,7 @@ import math
 import os
 import sys
 from typing import Iterable
+from tqdm import tqdm
 
 import torch
 
@@ -23,9 +24,9 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
     metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
     metric_logger.add_meter('class_error', utils.SmoothedValue(window_size=1, fmt='{value:.2f}'))
     header = 'Epoch: [{}]'.format(epoch)
-    print_freq = 10
+    print_freq = 1000
 
-    for samples, targets in metric_logger.log_every(data_loader, print_freq, header):
+    for samples, targets in tqdm(metric_logger.log_every(data_loader, print_freq, header), total=len(data_loader), desc=f"Training Epoch {epoch}"):
         samples = samples.to(device)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
@@ -77,7 +78,7 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
     coco_evaluator = CocoEvaluator(base_ds, iou_types)
     # coco_evaluator.coco_eval[iou_types[0]].params.iouThrs = [0, 0.1, 0.5, 0.75]
 
-    for samples, targets in metric_logger.log_every(data_loader, 10, header):
+    for samples, targets in tqdm(metric_logger.log_every(data_loader, 100, header), total=len(data_loader), desc="Evaluating"):
         samples = samples.to(device)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 

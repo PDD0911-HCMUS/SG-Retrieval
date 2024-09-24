@@ -14,6 +14,9 @@ import util.misc as utils
 from datasets import build_dataset, get_coco_api_from_dataset
 from engine import evaluate, train_one_epoch
 from models import build_model
+import os
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 
 def get_args_parser():
     parser = argparse.ArgumentParser('Set transformer detector', add_help=False)
@@ -77,16 +80,16 @@ def get_args_parser():
     parser.add_argument('--coco_path', type=str)
     parser.add_argument('--remove_difficult', action='store_true')
 
-    parser.add_argument('--output_dir', default='',
+    parser.add_argument('--output_dir', default='ckpt/obde',
                         help='path where to save, empty for no saving')
-    parser.add_argument('--device', default='cpu',
+    parser.add_argument('--device', default='cuda',
                         help='device to use for training / testing')
     parser.add_argument('--seed', default=42, type=int)
     parser.add_argument('--resume', default='', help='resume from checkpoint')
     parser.add_argument('--start_epoch', default=0, type=int, metavar='N',
                         help='start epoch')
     parser.add_argument('--eval', action='store_true')
-    parser.add_argument('--num_workers', default=2, type=int)
+    parser.add_argument('--num_workers', default=0, type=int)
 
     # distributed training parameters
     parser.add_argument('--world_size', default=1, type=int,
@@ -100,7 +103,20 @@ def get_args_parser():
 def main(args):
     utils.init_distributed_mode(args)
     print("git:\n  {}\n".format(utils.get_sha()))
-    device = torch.device(args.device)
+    if args.distributed:
+        print(f"RANK: {os.environ.get('RANK')}, LOCAL_RANK: {os.environ.get('LOCAL_RANK')}")
+        print(f"CUDA_VISIBLE_DEVICES: {os.environ.get('CUDA_VISIBLE_DEVICES')}")
+        # Kiểm tra số lượng GPU được nhận
+        available_gpus = torch.cuda.device_count()
+        print(f"Số lượng GPU khả dụng: {available_gpus}")
+
+        # In thông tin chi tiết về từng GPU
+        for i in range(available_gpus):
+            print(f"GPU {i}: {torch.cuda.get_device_name(i)}")
+        device = torch.device(f'cuda:{args.local_rank}')
+    else:
+        # Sử dụng thiết bị được chỉ định trong args.device (mặc định là 'cuda')
+        device = torch.device(args.device)
 
     seed = args.seed + utils.get_rank()
     torch.manual_seed(seed)
@@ -112,8 +128,11 @@ def main(args):
 
     model_without_ddp = model
     if args.distributed:
-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu], find_unused_parameters=True)
+        print('use distributed')
+        torch.cuda.set_device(args.local_rank)
+        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[torch.cuda.current_device()], find_unused_parameters=True)
         model_without_ddp = model.module
+
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print('number of params:', n_parameters)
 
@@ -179,7 +198,7 @@ def main(args):
         if args.output_dir:
             checkpoint_paths = [output_dir / 'checkpoint.pth'] # anti-crash
             # extra checkpoint before LR drop and every 100 epochs
-            if (epoch + 1) % args.lr_drop == 0 or (epoch + 1) % 2 == 0:
+            if (epoch + 1) % 2 == 0:
                 checkpoint_paths.append(output_dir / f'checkpoint{epoch:04}.pth')
             for checkpoint_path in checkpoint_paths:
                 utils.save_on_master({

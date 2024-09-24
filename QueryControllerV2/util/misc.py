@@ -404,12 +404,37 @@ def save_on_master(*args, **kwargs):
         torch.save(*args, **kwargs)
 
 
+# def init_distributed_mode(args):
+#     if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
+#         args.rank = int(os.environ["RANK"])
+#         args.world_size = int(os.environ['WORLD_SIZE'])
+#         args.gpu = int(os.environ['LOCAL_RANK'])
+#     elif 'SLURM_PROCID' in os.environ:
+#         args.rank = int(os.environ['SLURM_PROCID'])
+#         args.gpu = args.rank % torch.cuda.device_count()
+#     else:
+#         print('Not using distributed mode')
+#         args.distributed = False
+#         return
+
+#     args.distributed = True
+
+#     torch.cuda.set_device(args.rank % torch.cuda.device_count())
+#     args.dist_backend = 'nccl'
+#     print('| distributed init (rank {}): {}'.format(
+#         args.rank, args.dist_url), flush=True)
+#     torch.distributed.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
+#                                          world_size=args.world_size, rank=args.rank)
+#     torch.distributed.barrier()
+#     setup_for_distributed(args.rank == 0)
+
 def init_distributed_mode(args):
+    # Kiểm tra xem có biến môi trường `RANK` và `WORLD_SIZE` không
     if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
-        args.rank = int(os.environ["RANK"])
-        args.world_size = int(os.environ['WORLD_SIZE'])
-        args.gpu = int(os.environ['LOCAL_RANK'])
-    elif 'SLURM_PROCID' in os.environ:
+        args.rank = int(os.environ["RANK"])  # Rank của tiến trình hiện tại
+        args.world_size = int(os.environ['WORLD_SIZE'])  # Tổng số tiến trình
+        args.gpu = int(os.environ['LOCAL_RANK'])  # Local rank (GPU chỉ định cho tiến trình)
+    elif 'SLURM_PROCID' in os.environ:  # Nếu sử dụng Slurm
         args.rank = int(os.environ['SLURM_PROCID'])
         args.gpu = args.rank % torch.cuda.device_count()
     else:
@@ -417,16 +442,28 @@ def init_distributed_mode(args):
         args.distributed = False
         return
 
+    # Kích hoạt chế độ phân phối
     args.distributed = True
 
+    # Thiết lập GPU tương ứng cho tiến trình dựa trên `LOCAL_RANK`
     torch.cuda.set_device(args.gpu)
+    
+    # Thiết lập backend và khởi tạo tiến trình phân tán
     args.dist_backend = 'nccl'
-    print('| distributed init (rank {}): {}'.format(
-        args.rank, args.dist_url), flush=True)
+    print(f'| distributed init (rank {args.rank}, local rank {args.gpu}): {args.dist_url}', flush=True)
+    
+    print(f' Khởi tạo nhóm tiến trình phân tán với NCCL')
+    # Khởi tạo nhóm tiến trình phân tán với NCCL
     torch.distributed.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
                                          world_size=args.world_size, rank=args.rank)
-    torch.distributed.barrier()
+    
+    # Đồng bộ hóa các tiến trình
+    print(f'Đồng bộ hóa các tiến trình')
+    # torch.distributed.barrier()
+    print(f'DONE Đồng bộ hóa các tiến trình')
+    # Nếu không phải tiến trình chính, tắt in ra console
     setup_for_distributed(args.rank == 0)
+    print(f' Nếu không phải tiến trình chính, tắt in ra console')
 
 
 @torch.no_grad()
