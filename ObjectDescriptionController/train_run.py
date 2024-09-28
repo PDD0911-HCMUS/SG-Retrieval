@@ -103,7 +103,6 @@ def evaluate(model, criterion, data_loader, device):
     criterion.eval()  
 
     running_loss = 0.0
-    num_samples = 0  
 
     progress_bar = tqdm(enumerate(data_loader), total=len(data_loader), desc="Evaluating")
 
@@ -120,7 +119,6 @@ def evaluate(model, criterion, data_loader, device):
             losses = criterion(outputs, targets)
 
             running_loss += losses.item()
-            num_samples += len(images)
 
             progress_bar.set_postfix(loss=losses.item())
 
@@ -143,12 +141,14 @@ def main(args):
     np.random.seed(seed)
     random.seed(seed)
  
-    save_dir = 'ckpt/objde/'
+    save_dir = '/radish/phamd/duypd-proj/SG-Retrieval/ckpt/objde/'
     
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
     model, criterion = build_model(args)
+    model.to(device)
+    criterion.to(device)
 
     model_without_ddp = model
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
