@@ -71,21 +71,11 @@ class ConvertCocoPolysToMask(object):
         classes = [obj["category_id"] for obj in anno]
         classes = torch.tensor(classes, dtype=torch.int64)
 
-        keypoints = None
-        if anno and "keypoints" in anno[0]:
-            keypoints = [obj["keypoints"] for obj in anno]
-            keypoints = torch.as_tensor(keypoints, dtype=torch.float32)
-            num_keypoints = keypoints.shape[0]
-            if num_keypoints:
-                keypoints = keypoints.view(num_keypoints, -1, 3)
-
         keep = (boxes[:, 3] > boxes[:, 1]) & (boxes[:, 2] > boxes[:, 0])
         boxes = boxes[keep]
         classes = classes[keep]
         if self.return_masks:
             masks = masks[keep]
-        if keypoints is not None:
-            keypoints = keypoints[keep]
 
         target = {}
         target["boxes"] = boxes
@@ -93,8 +83,6 @@ class ConvertCocoPolysToMask(object):
         if self.return_masks:
             target["masks"] = masks
         target["image_id"] = image_id
-        if keypoints is not None:
-            target["keypoints"] = keypoints
 
         # for conversion to coco api
         area = torch.tensor([obj["area"] for obj in anno])
@@ -102,7 +90,7 @@ class ConvertCocoPolysToMask(object):
         target["area"] = area[keep]
         target["iscrowd"] = iscrowd[keep]
 
-        # target["desc"] = desc
+        target["desc"] = desc
         target["desc_emb"] = desc_emb
         target["desc_msk"] = desc_msk
 
@@ -110,7 +98,6 @@ class ConvertCocoPolysToMask(object):
         target["size"] = torch.as_tensor([int(h), int(w)])
 
         return image, target
-
 
 def make_coco_transforms(image_set):
 
@@ -145,8 +132,6 @@ def make_coco_transforms(image_set):
 
 
 def build(image_set):
-    # root = Path(args.coco_path)
-    mode = 'instances'
     if (image_set == 'train'):
         ann_file = cf.data_anno_train
         img_folder = cf.data_image
@@ -158,11 +143,8 @@ def build(image_set):
     return dataset
 
 def imshow(img):
-    img = img.numpy().transpose((1, 2, 0))  # chuyển từ tensor sang numpy
+    img = img.numpy().transpose((1, 2, 0))
     img = np.clip(img, 0,1)
-    # plt.imshow(img)
-    # plt.axis('off')
-    # print(type(img))
     return img
 
 # for output bounding box post-processing
@@ -185,13 +167,10 @@ def build_example():
     index = random.randint(0, 1000)
     imageTransform, target = trainDataset.__getitem__(index)
     bboxes_scaled = rescale_bboxes(target['boxes'], (imageTransform.shape[2], imageTransform.shape[1]))
-    print(imageTransform.shape)
     print(target)
-    # print(bboxes_scaled)
     imCopy = imshow(imageTransform)
     imgPil = Image.fromarray((imCopy * 255).astype(np.uint8))
     imageDraw = ImageDraw.Draw(imgPil)
-    print(tokenizer.vocab_size)
     plt.figure(figsize=(16,10))
     plt.imshow(imgPil)
     ax = plt.gca()

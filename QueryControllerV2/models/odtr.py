@@ -144,16 +144,17 @@ class SetCriterion(nn.Module):
 
         idx = self._get_src_permutation_idx(indices)
         target_classes_o = torch.cat([t["labels"][J] for t, (_, J) in zip(targets, indices)])
-        target_classes = torch.full(src_logits.shape[:2], self.num_classes,
+        target_classes = torch.full(src_logits.shape[:2], 0,
                                     dtype=torch.int64, device=src_logits.device)
         target_classes[idx] = target_classes_o
 
-        loss_ce = F.cross_entropy(src_logits.transpose(1, 2), target_classes, self.empty_weight)
+        loss_ce = F.binary_cross_entropy_with_logits(src_logits, target_classes, weight=self.empty_weight)
         losses = {'loss_ce': loss_ce}
 
         if log:
             # TODO this should probably be a separate loss, not hacked in this one here
-            losses['class_error'] = 100 - accuracy(src_logits[idx], target_classes_o)[0]
+            pred_classes = (torch.sigmoid(src_logits) > 0.5).float()
+            losses['class_error'] = 100 - (pred_classes[idx] == target_classes_o).float().mean().item() * 100
         return losses
 
     def loss_desc(self, outputs, targets, indices, num_boxes, log=True):
@@ -172,14 +173,6 @@ class SetCriterion(nn.Module):
         # Extract the target descriptions (desc_emb) and masks (desc_msk) for the matched queries
         target_desc = torch.cat([t["desc_emb"][J] for t, (_, J) in zip(targets, indices)], dim=0)  # Target descriptions
         target_msk = torch.cat([t["desc_msk"][J] for t, (_, J) in zip(targets, indices)], dim=0)  # Target masks
-
-        # Reshape predictions and targets for Cross-Entropy computation
-        # src_desc: [batch_size * num_queries, seq_length, vocab_size]
-        # target_desc: [batch_size * num_queries, seq_length]
-        # batch_size, num_queries, seq_length, vocab_size = src_desc.shape
-        # src_desc = src_desc.view(batch_size * num_queries, seq_length, vocab_size)  # Flatten to [total_queries, seq_length, vocab_size]
-        # target_desc = target_desc.view(batch_size * num_queries, seq_length)  # Flatten to [total_queries, seq_length]
-        # target_msk = target_msk.view(batch_size * num_queries, seq_length)  # Flatten to [total_queries, seq_length]
 
         # Cross-Entropy Loss for text prediction (ignoring padding tokens)
         loss_desc = F.cross_entropy(src_desc.transpose(2, 1), target_desc, reduction='none')  # Shape: [total_queries, seq_length]

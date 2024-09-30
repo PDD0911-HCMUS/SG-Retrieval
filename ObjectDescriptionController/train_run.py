@@ -12,7 +12,7 @@ import torch
 import util.misc as utils
 from typing import Iterable
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 def get_args_parser():
     parser = argparse.ArgumentParser('Set transformer detector', add_help=False)
