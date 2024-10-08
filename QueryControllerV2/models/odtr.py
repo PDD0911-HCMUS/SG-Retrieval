@@ -94,8 +94,6 @@ class ODTR(nn.Module):
         outputs_class = self.class_embed(hs)
         outputs_coord = self.bbox_embed(hs).sigmoid()
 
-        outputs_class = self.class_embed(hs)
-        outputs_coord = self.bbox_embed(hs).sigmoid()
         out = {'pred_logits': outputs_class[-1], 'pred_boxes': outputs_coord[-1], 'pred_desc': outputs_desc[-1]}
         if self.aux_loss:
             out['aux_outputs'] = self._set_aux_loss(outputs_class, outputs_coord, outputs_desc)
@@ -111,7 +109,7 @@ class ODTR(nn.Module):
 
 
 class SetCriterion(nn.Module):
-    """ This class computes the loss for DETR.
+    """
     The process happens in two steps:
         1) we compute hungarian assignment between ground truth boxes and the outputs of the model
         2) we supervise each pair of matched ground-truth / prediction (supervise class and box)
@@ -148,13 +146,12 @@ class SetCriterion(nn.Module):
                                     dtype=torch.int64, device=src_logits.device)
         target_classes[idx] = target_classes_o
 
-        loss_ce = F.binary_cross_entropy_with_logits(src_logits, target_classes, weight=self.empty_weight)
+        loss_ce = F.cross_entropy(src_logits.transpose(1, 2), target_classes, self.empty_weight)
         losses = {'loss_ce': loss_ce}
 
         if log:
             # TODO this should probably be a separate loss, not hacked in this one here
-            pred_classes = (torch.sigmoid(src_logits) > 0.5).float()
-            losses['class_error'] = 100 - (pred_classes[idx] == target_classes_o).float().mean().item() * 100
+            losses['class_error'] = 100 - accuracy(src_logits[idx], target_classes_o)[0]
         return losses
 
     def loss_desc(self, outputs, targets, indices, num_boxes, log=True):

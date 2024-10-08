@@ -162,6 +162,7 @@ def rescale_bboxes(out_bbox, size):
     return b
 
 def build_example():
+    path_im = cf.data_image
     trainDataset = build('train')
     print(len(trainDataset))
     index = random.randint(0, 1000)
