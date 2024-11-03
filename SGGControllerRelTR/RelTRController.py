@@ -312,7 +312,7 @@ def sgg_controller():
                 sList.append(CLASSES[probas_sub[idx].argmax()])
                 oList.append(CLASSES[probas_obj[idx].argmax()])
                 rList.append(REL_CLASSES[probas[idx].argmax()])
-                txt = CLASSES[probas_sub[idx].argmax()] + '/' + REL_CLASSES[probas[idx].argmax()] + '/' + CLASSES[probas_obj[idx].argmax()]
+                txt = CLASSES[probas_sub[idx].argmax()] + ' ' + REL_CLASSES[probas[idx].argmax()] + ' ' + CLASSES[probas_obj[idx].argmax()]
 
                 t_json = {
                     "subject": CLASSES[probas_sub[idx].argmax()],

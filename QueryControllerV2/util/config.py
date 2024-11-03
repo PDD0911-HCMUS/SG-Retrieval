@@ -7,7 +7,7 @@
 # data_anno_train = data_anno + 'instances_attributes_train2020.json'
 # data_anno_valid = data_anno + 'instances_attributes_val2020.json'
 
-data_anno_train = '/radish/phamd/duypd-proj/SG-Retrieval/Datasets/VisualGenome/anno_org/train_mini_desc.json'
-data_anno_valid = '/radish/phamd/duypd-proj/SG-Retrieval/Datasets/VisualGenome/anno_org/val_mini_desc.json'
-data_image = '/radish/phamd/duypd-proj/SG-Retrieval/Datasets/VisualGenome/VG_100K/'
+data_anno_train = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/Datasets/VisualGenome/anno_org/train_mini_desc.json'
+data_anno_valid = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/Datasets/VisualGenome/anno_org/val_mini_desc.json'
+data_image = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/Datasets/VisualGenome/VG_100K'
 

@@ -10,3 +10,4 @@ Datasets
 *.pth
 
 nltk_data/*
+check_gt.json

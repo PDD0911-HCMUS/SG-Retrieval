@@ -22,7 +22,7 @@ def get_args_parser():
     parser = argparse.ArgumentParser('Set transformer detector', add_help=False)
     parser.add_argument('--lr', default=1e-4, type=float)
     parser.add_argument('--lr_backbone', default=1e-5, type=float)
-    parser.add_argument('--batch_size', default=1, type=int)
+    parser.add_argument('--batch_size', default=2, type=int)
     parser.add_argument('--weight_decay', default=1e-4, type=float)
     parser.add_argument('--epochs', default=300, type=int)
     parser.add_argument('--lr_drop', default=200, type=int)
@@ -164,79 +164,83 @@ def main(args):
                                    collate_fn=utils.collate_fn, num_workers=args.num_workers)
     data_loader_val = DataLoader(dataset_val, args.batch_size, sampler=sampler_val,
                                  drop_last=False, collate_fn=utils.collate_fn, num_workers=args.num_workers)
-
-    base_ds = get_coco_api_from_dataset(dataset_val)
-
-    if args.frozen_weights is not None:
-        checkpoint = torch.load(args.frozen_weights, map_location='cpu')
-        model_without_ddp.detr.load_state_dict(checkpoint['model'])
-
-    output_dir = Path(args.output_dir)
-    if args.resume:
-        checkpoint = torch.load(args.resume, map_location='cpu')
-        model_without_ddp.load_state_dict(checkpoint['model'], strict=True)
-        # del checkpoint['optimizer']
-        if not args.eval and 'optimizer' in checkpoint and 'lr_scheduler' in checkpoint and 'epoch' in checkpoint:
-            optimizer.load_state_dict(checkpoint['optimizer'])
-            lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
-            args.start_epoch = checkpoint['epoch'] + 1
     
-    if args.eval:
-        print('It is the {}th checkpoint'.format(checkpoint['epoch']))
-        test_stats, coco_evaluator = evaluate(model, criterion, postprocessors, data_loader_val, base_ds, device, args)
-        if args.output_dir:
-            utils.save_on_master(coco_evaluator.coco_eval["bbox"].eval, output_dir / "eval.pth")
-        return
+    for samples, targets in data_loader_train:
+        s = samples
+        t  = targets
 
-    print("Start training")
-    start_time = time.time()
-    for epoch in range(args.start_epoch, 200):
-        if args.distributed:
-            sampler_train.set_epoch(epoch)
-        train_stats = train_one_epoch(model, criterion, data_loader_train, optimizer, device, epoch, args.clip_max_norm)
-        lr_scheduler.step()
-        if args.output_dir:
-            checkpoint_paths = [output_dir / 'checkpoint.pth'] # anti-crash
-            # extra checkpoint before LR drop and every 100 epochs
-            if (epoch + 1) % 2 == 0:
-                checkpoint_paths.append(output_dir / f'checkpoint{epoch:04}.pth')
-            for checkpoint_path in checkpoint_paths:
-                utils.save_on_master({
-                    'model': model_without_ddp.state_dict(),
-                    'optimizer': optimizer.state_dict(),
-                    'lr_scheduler': lr_scheduler.state_dict(),
-                    'epoch': epoch,
-                    'args': args,
-                }, checkpoint_path)
+    # base_ds = get_coco_api_from_dataset(dataset_val)
 
-        test_stats, coco_evaluator = evaluate(model, criterion, postprocessors, data_loader_val, base_ds, device, args)
+    # if args.frozen_weights is not None:
+    #     checkpoint = torch.load(args.frozen_weights, map_location='cpu')
+    #     model_without_ddp.detr.load_state_dict(checkpoint['model'])
 
-        log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
-                     **{f'test_{k}': v for k, v in test_stats.items()},
-                     'epoch': epoch,
-                     'n_parameters': n_parameters}
+    # output_dir = Path(args.output_dir)
+    # if args.resume:
+    #     checkpoint = torch.load(args.resume, map_location='cpu')
+    #     model_without_ddp.load_state_dict(checkpoint['model'], strict=True)
+    #     # del checkpoint['optimizer']
+    #     if not args.eval and 'optimizer' in checkpoint and 'lr_scheduler' in checkpoint and 'epoch' in checkpoint:
+    #         optimizer.load_state_dict(checkpoint['optimizer'])
+    #         lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
+    #         args.start_epoch = checkpoint['epoch'] + 1
+    
+    # if args.eval:
+    #     print('It is the {}th checkpoint'.format(checkpoint['epoch']))
+    #     test_stats, coco_evaluator = evaluate(model, criterion, postprocessors, data_loader_val, base_ds, device, args)
+    #     if args.output_dir:
+    #         utils.save_on_master(coco_evaluator.coco_eval["bbox"].eval, output_dir / "eval.pth")
+    #     return
 
-        if args.output_dir and utils.is_main_process():
-            with (output_dir / "log.txt").open("a") as f:
-                f.write(json.dumps(log_stats) + "\n")
+    # print("Start training")
+    # start_time = time.time()
+    # for epoch in range(args.start_epoch, 200):
+    #     if args.distributed:
+    #         sampler_train.set_epoch(epoch)
+    #     train_stats = train_one_epoch(model, criterion, data_loader_train, optimizer, device, epoch, args.clip_max_norm)
+    #     lr_scheduler.step()
+    #     if args.output_dir:
+    #         checkpoint_paths = [output_dir / 'checkpoint.pth'] # anti-crash
+    #         # extra checkpoint before LR drop and every 100 epochs
+    #         if (epoch + 1) % 2 == 0:
+    #             checkpoint_paths.append(output_dir / f'checkpoint{epoch:04}.pth')
+    #         for checkpoint_path in checkpoint_paths:
+    #             utils.save_on_master({
+    #                 'model': model_without_ddp.state_dict(),
+    #                 'optimizer': optimizer.state_dict(),
+    #                 'lr_scheduler': lr_scheduler.state_dict(),
+    #                 'epoch': epoch,
+    #                 'args': args,
+    #             }, checkpoint_path)
 
-            # for evaluation logs
-            if coco_evaluator is not None:
-                (output_dir / 'eval').mkdir(exist_ok=True)
-                if "bbox" in coco_evaluator.coco_eval:
-                    filenames = ['latest.pth']
-                    if epoch % 2 == 0:
-                        filenames.append(f'{epoch:03}.pth')
-                    for name in filenames:
-                        torch.save(coco_evaluator.coco_eval["bbox"].eval,
-                                   output_dir / "eval" / name)
+    #     test_stats, coco_evaluator = evaluate(model, criterion, postprocessors, data_loader_val, base_ds, device, args)
 
-    total_time = time.time() - start_time
-    total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-    print('Training time {}'.format(total_time_str))
+    #     log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
+    #                  **{f'test_{k}': v for k, v in test_stats.items()},
+    #                  'epoch': epoch,
+    #                  'n_parameters': n_parameters}
+
+    #     if args.output_dir and utils.is_main_process():
+    #         with (output_dir / "log.txt").open("a") as f:
+    #             f.write(json.dumps(log_stats) + "\n")
+
+    #         # for evaluation logs
+    #         if coco_evaluator is not None:
+    #             (output_dir / 'eval').mkdir(exist_ok=True)
+    #             if "bbox" in coco_evaluator.coco_eval:
+    #                 filenames = ['latest.pth']
+    #                 if epoch % 2 == 0:
+    #                     filenames.append(f'{epoch:03}.pth')
+    #                 for name in filenames:
+    #                     torch.save(coco_evaluator.coco_eval["bbox"].eval,
+    #                                output_dir / "eval" / name)
+
+    # total_time = time.time() - start_time
+    # total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+    # print('Training time {}'.format(total_time_str))
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser('RelTR training and evaluation script', parents=[get_args_parser()])
+    parser = argparse.ArgumentParser('training and evaluation script', parents=[get_args_parser()])
     args = parser.parse_args()
     if args.output_dir:
         Path(args.output_dir).mkdir(parents=True, exist_ok=True)

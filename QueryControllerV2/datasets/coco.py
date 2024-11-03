@@ -56,10 +56,13 @@ class ConvertCocoPolysToMask(object):
 
         boxes = [obj["bbox"] for obj in anno]
         desc = [obj["desc"] for obj in anno]
+        desc_tok = '. '.join(desc) + '.'
+        print(desc_tok)
 
-        token = tokenizer(desc, padding='max_length', truncation=True, max_length=7, return_tensors="pt")
+        # token = tokenizer.batch_encode_plus([desc_tok], padding='max_length', truncation=True, max_length=40, return_tensors="pt")
+        token = tokenizer([desc_tok], padding='max_length', truncation=True, max_length=40, return_tensors="pt")
 
-        desc_emb = token['input_ids']
+        desc_tok = token['input_ids']
         desc_msk = token['attention_mask']
 
         # guard against no boxes via resizing
@@ -91,7 +94,7 @@ class ConvertCocoPolysToMask(object):
         target["iscrowd"] = iscrowd[keep]
 
         target["desc"] = desc
-        target["desc_emb"] = desc_emb
+        target["desc_tok"] = desc_tok
         target["desc_msk"] = desc_msk
 
         target["orig_size"] = torch.as_tensor([int(h), int(w)])
@@ -162,6 +165,7 @@ def rescale_bboxes(out_bbox, size):
     return b
 
 def build_example():
+    
     path_im = cf.data_image
     trainDataset = build('train')
     print(len(trainDataset))
@@ -172,12 +176,16 @@ def build_example():
     imCopy = imshow(imageTransform)
     imgPil = Image.fromarray((imCopy * 255).astype(np.uint8))
     imageDraw = ImageDraw.Draw(imgPil)
+
     plt.figure(figsize=(16,10))
     plt.imshow(imgPil)
     ax = plt.gca()
-    for (xmin, ymin, xmax, ymax) in bboxes_scaled:
+    for (xmin, ymin, xmax, ymax), dec in zip(bboxes_scaled, target['desc']):
         ax.add_patch(plt.Rectangle((xmin, ymin), xmax - xmin, ymax - ymin,
                                    fill=False, color='red', linewidth=1.5))
+        ax.text(xmin, ymin, dec, color='blue', fontsize=10, 
+            verticalalignment='top', horizontalalignment='left',
+            bbox=dict(facecolor='white', alpha=0.5))
     plt.show()
 
 
