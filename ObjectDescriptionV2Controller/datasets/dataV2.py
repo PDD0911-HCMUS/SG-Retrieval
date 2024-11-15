@@ -40,6 +40,14 @@ class CreateData(Dataset):
         encoded_triplets_que = []
         encoded_triplets_rev = []
 
+        labels_que_s = []
+        labels_que_o = []
+        labels_rev_s = []
+        labels_rev_o = []
+
+        triplets_que = {}
+        triplets_rev = {}
+
         que = self.data[idx]['qe']
         rev = self.data[idx]['rev']
 
@@ -50,6 +58,8 @@ class CreateData(Dataset):
             obj2_idx = self.class_to_idx.get(obj2, 0)
 
             encoded_triplets_que.append([obj1_idx, rel_idx, obj2_idx])
+            labels_que_s.append(obj1_idx)
+            labels_que_o.append(obj2_idx)
 
         for item_rev in rev['trip']:
             obj1, rel, obj2 = item_rev.split(' ')[0], item_rev.split(' ')[1], item_rev.split(' ')[2]
@@ -59,16 +69,45 @@ class CreateData(Dataset):
 
             encoded_triplets_rev.append([obj1_idx, rel_idx, obj2_idx])
 
-        while len(encoded_triplets_que) < 7:
-            encoded_triplets_que.append([0, 0, 0])
+            labels_rev_s.append(obj1_idx)
+            labels_rev_o.append(obj2_idx)
 
-        while len(encoded_triplets_rev) < 7:
-            encoded_triplets_rev.append([0, 0, 0])
+        labels_que_s = list(dict.fromkeys(labels_que_s))
+        labels_que_o = list(dict.fromkeys(labels_que_o))
+        labels_que = labels_que_s + labels_que_o
+
+        labels_rev_s = list(dict.fromkeys(labels_rev_s))
+        labels_rev_o = list(dict.fromkeys(labels_rev_o))
+        labels_rev = labels_rev_s + labels_rev_o
+        
+
+        while len(encoded_triplets_que) < 10:
+            encoded_triplets_que.append([151, 51, 151])
+
+        while len(encoded_triplets_rev) < 10:
+            encoded_triplets_rev.append([151, 51, 151])
+
+        while len(labels_que) < 10:
+            labels_que.append(151)
+        
+        while len(labels_rev) < 10:
+            labels_rev.append(151)
         
         encoded_triplets_que = torch.tensor(encoded_triplets_que)
         encoded_triplets_rev = torch.tensor(encoded_triplets_rev)
 
-        return encoded_triplets_que, encoded_triplets_rev
+        triplets_que['sub_labels'] = encoded_triplets_que[:,0]
+        triplets_que['obj_labels'] = encoded_triplets_que[:,2]
+        triplets_que['rel_labels'] = encoded_triplets_que[:,1]
+        triplets_que['labels'] = torch.tensor(labels_que)
+
+        triplets_rev['sub_labels'] = encoded_triplets_rev[:,0]
+        triplets_rev['obj_labels'] = encoded_triplets_rev[:,2]
+        triplets_rev['rel_labels'] = encoded_triplets_rev[:,1]
+        triplets_rev['labels'] = torch.tensor(labels_rev)
+
+
+        return encoded_triplets_que, encoded_triplets_rev, triplets_que, triplets_rev
     
     def __len__(self):
         return len(self.data) 
@@ -86,6 +125,6 @@ if __name__ == "__main__":
     ann_file = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/Datasets/VisualGenome/Rev.json'
     train_dataset, valid_dataset = build(ann_file)
     idx = 1
-    encoded_triplets_que, encoded_triplets_rev = train_dataset.__getitem__(idx)
-    print(f'encoded_triplets_que: {encoded_triplets_que}')
-    print(f'encoded_triplets_rev: {encoded_triplets_rev}')
+    encoded_triplets_que, encoded_triplets_rev, triplets_que, triplets_rev = train_dataset.__getitem__(idx)
+    print(f'encoded_triplets_que: {triplets_que}')
+    print(f'encoded_triplets_rev: {triplets_rev}')
