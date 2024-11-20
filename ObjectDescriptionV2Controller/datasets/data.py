@@ -14,7 +14,8 @@ import torchvision
 from pycocotools import mask as coco_mask
 import numpy as np
 import datasets.transforms as T
-
+import util.misc as utils
+from torch.utils.data import Dataset, DataLoader, DistributedSampler
 class CocoDetection(torchvision.datasets.CocoDetection):
     def __init__(self, img_folder, ann_file, transforms, return_masks):
         super(CocoDetection, self).__init__(img_folder, ann_file)
@@ -206,8 +207,31 @@ def build(image_set):
     dataset = CocoDetection(img_folder, ann_file, transforms=make_coco_transforms(image_set), return_masks=False)
     return dataset
 
+def pre_processing(targets):
+    edge_max_num = max([len(t['rel_annotations']) for t in targets])
+    for t in targets:
+        if t['rel_annotations'].shape[0] < edge_max_num:
+            t['rel_annotations'] = torch.cat([t['rel_annotations'],
+                                              torch.tensor([[0, 0, 51]],
+                                               dtype=torch.long,
+                                               device=t['rel_annotations'].device).repeat(
+                                                edge_max_num - t['rel_annotations'].shape[0], 1)], dim=0)
+
+    return targets
+
 if __name__ == "__main__":
-    dataset = build("train")
+    device = 'cpu'
+    dataset = build("val")
     idx = 1
     img, target = dataset.__getitem__(idx)
-    print(target)
+    data_loader_val = DataLoader(dataset, 2, drop_last=True, collate_fn=utils.collate_fn)
+    # print(target)
+    for samples, targets in data_loader_val:
+        # print(targets)
+        print(type(targets))
+        targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+        print(targets)
+        targets = pre_processing(targets)
+        print(200*'=')
+        print(targets)
+        break

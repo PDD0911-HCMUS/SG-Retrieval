@@ -4,28 +4,46 @@ from typing import Optional
 import torch
 import torch.nn.functional as F
 from torch import nn, Tensor
-
+from transformers import BertModel
 class GraphEncoder(nn.Module):
 
     def __init__(self, d_model=512, nhead=8, nlayer=6, d_ffn=2048,
-                 dropout=0.1, activation="relu"):
+                 dropout=0.1, activation="relu", pretrain = 'bert-base-uncased'):
         super().__init__()
-        self.graph_cls = nn.Parameter(torch.zeros(1, d_model))
 
-        self.entity_embed = nn.Embedding(152, d_model)
-        self.sub_embed = nn.Embedding(152, d_model)
-        self.obj_embed = nn.Embedding(152, d_model)
-        self.relation_embed = nn.Embedding(52, d_model)
+        self.model_embeding = BertModel.from_pretrained(pretrain)
 
-        self.node_encodings = nn.Parameter(torch.zeros(10, d_model))
-        self.node_encodings_s = nn.Parameter(torch.zeros(10, d_model))
-        self.node_encodings_o = nn.Parameter(torch.zeros(10, d_model))
-        self.edge_encodings = nn.Parameter(torch.zeros(10, d_model))
+        self.activation = _get_activation_fn(activation)
 
-        encoder_layer = TransformerEncoderLayer(d_model, nhead, d_ffn, dropout, activation)
-        self.layers = _get_clones(encoder_layer, nlayer)
-        self.nlayer = nlayer
-
+        
+        self.sub_embed = nn.Sequential(
+                            nn.Linear(768, 512),
+                            self.activation,
+                            nn.Dropout(0.3),
+                            nn.Linear(512, d_model),
+                            nn.LayerNorm(d_model))
+        
+        self.obj_embed = nn.Sequential(
+                            nn.Linear(768, 512),
+                            self.activation,
+                            nn.Dropout(0.3),
+                            nn.Linear(512, d_model),
+                            nn.LayerNorm(d_model))
+        
+        self.relation_embed = nn.Sequential(
+                            nn.Linear(768, 512),
+                            self.activation,
+                            nn.Dropout(0.3),
+                            nn.Linear(512, d_model),
+                            nn.LayerNorm(d_model))
+        
+        self.trip_embed = nn.Sequential(
+                            nn.Linear(768, 512),
+                            self.activation,
+                            nn.Dropout(0.3),
+                            nn.Linear(512, d_model),
+                            nn.LayerNorm(d_model))
+        
         self._reset_parameters()
         self.d_model = d_model
         self.nhead = nhead
@@ -34,57 +52,40 @@ class GraphEncoder(nn.Module):
         for p in self.parameters():
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
+    
+    def _get_word_embedding(self, input_ids, mask):
+        word_means = []
+        for i,m in zip(input_ids, mask):
+            with torch.no_grad():
+                outputs = self.model_embeding(i, attention_mask = m)
+                word_em = outputs.last_hidden_state
+                word_mean = word_em.mean(dim = 1)
+                word_means.append(word_mean)
+        z = torch.stack([w for w in word_means])
+        # print(z.size())
+        return z
 
     def forward(self, graphs):
 
-        nodes = torch.stack([self.entity_embed(g["labels"]) for g in graphs])
-        nodes_s = torch.stack([self.entity_embed(g["sub_labels"]) for g in graphs])
-        nodes_o = torch.stack([self.entity_embed(g["obj_labels"]) for g in graphs])
-        edges = torch.stack([self.relation_embed(g["rel_labels"]) for g in graphs])
+        s = torch.stack([g["sub_labels"] for g in graphs])
+        s_msk = torch.stack([g["sub_labels_msk"] for g in graphs])
+        o = torch.stack([g["obj_labels"] for g in graphs])
+        o_msk = torch.stack([g["obj_labels_msk"] for g in graphs])
+        r = torch.stack([g["rel_labels"] for g in graphs])
+        r_msk = torch.stack([g["rel_labels_msk"] for g in graphs])
 
-        nodes_mask = torch.stack([g["labels"] == 151 for g in graphs])
-        nodes_mask_s = torch.stack([g["sub_labels"] == 151 for g in graphs])
-        nodes_mask_o = torch.stack([g["obj_labels"] == 151 for g in graphs])
-        edges_mask = torch.stack([g["rel_labels"] == 51 for g in graphs])
+        t = torch.stack([g["trip"] for g in graphs])
+        t_msk = torch.stack([g["trip_msk"] for g in graphs])
 
-        nodes_encodings = self.node_encodings.unsqueeze(0).repeat(len(graphs), 1, 1)
-        nodes_encodings_s = self.node_encodings.unsqueeze(0).repeat(len(graphs), 1, 1)
-        nodes_encodings_o = self.node_encodings.unsqueeze(0).repeat(len(graphs), 1, 1)
-        edges_encodings = self.edge_encodings.unsqueeze(0).repeat(len(graphs), 1, 1)
-        
+        z_s = self.sub_embed(self._get_word_embedding(s, s_msk))
+        z_o = self.sub_embed(self._get_word_embedding(o, o_msk))
+        z_r = self.sub_embed(self._get_word_embedding(r, r_msk))
 
-        graph_cls = self.graph_cls.unsqueeze(0).repeat(len(graphs), 1, 1)
-        graph_mask = torch.zeros([len(graphs), 1], dtype=torch.bool, device=graphs[0]["labels"].device)
+        z_t = self.trip_embed(self._get_word_embedding(t, t_msk))
 
-        output = torch.cat(
-            [
-                graph_cls, 
-                nodes, 
-                nodes_s,
-                nodes_o,
-                edges
-            ], dim=1)
-        pos = torch.cat(
-            [
-                torch.zeros([len(graphs), 1, self.d_model], device=graphs[0]["labels"].device), 
-                nodes_encodings, 
-                nodes_encodings_s,
-                nodes_encodings_o,
-                edges_encodings
-            ], dim=1)
-        mask = torch.cat(
-            [
-                graph_mask, 
-                nodes_mask,
-                nodes_mask_s,
-                nodes_mask_o,
-                edges_mask
-            ], dim=1)
 
-        for layer in self.layers:
-            output = layer(output, src_key_padding_mask=mask, pos=pos)
 
-        return output, mask, pos
+        return
 
 class TransformerEncoderLayer(nn.Module):
 
@@ -121,11 +122,11 @@ def _get_clones(module, N):
 
 def _get_activation_fn(activation):
     if activation == "relu":
-        return F.relu
+        return nn.ReLU()
     if activation == "gelu":
-        return F.gelu
+        return nn.GELU()
     if activation == "glu":
-        return F.glu
+        return nn.GLU()
     raise RuntimeError(F"activation should be relu/gelu, not {activation}.")
 
 # if __name__ == "__main__":
