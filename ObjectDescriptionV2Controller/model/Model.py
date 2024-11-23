@@ -1,36 +1,41 @@
 import torch
 import torch.nn.functional as F
 from torch import nn
-from .GraphEncoder import GraphEncoder
+from .GraphEncoderV2 import GraphEncoder
 import numpy as np
 
+from datasets.dataV3 import build, custom_collate_fn
+from torch.utils.data import DataLoader
+
 class G2G(nn.Module):
-    def __init__(self, graph_layer_num=6):
+    def __init__(self, d_model = 256, dropout=0.1, activation="relu", pretrain = 'bert-base-uncased'):
         super().__init__()
+
         self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
 
-        self.graph_encoder_que = GraphEncoder(d_model=512, nhead=8, nlayer=graph_layer_num,
-                                          d_ffn=1024, dropout=0.1, activation="relu")
+        self.graph_encoder_que = GraphEncoder(d_model=d_model, dropout=dropout, activation=activation, pretrain = pretrain)
         
-        self.graph_encoder_rev = GraphEncoder(d_model=512, nhead=8, nlayer=graph_layer_num,
-                                          d_ffn=1024, dropout=0.1, activation="relu")
+        self.graph_encoder_rev = GraphEncoder(d_model=d_model, dropout=dropout, activation=activation, pretrain = pretrain)
         
 
-    def forward(self, graphs_que, graphs_rev):
-        output_que, mask_que, pos_que = self.graph_encoder_que(graphs_que)
-        output_rev, mask_rev, pos_rev = self.graph_encoder_rev(graphs_rev)
+    def forward(self, que, rev):
+        out_que = self.graph_encoder_que(que)
+        out_rev = self.graph_encoder_rev(rev)
 
-        graph_features_que = output_que[:, 0]
-        graph_features_rev = output_rev[:, 0]
+        #mean pooling
+        out_que_pooled = out_que.mean(dim=1) 
+        out_rev_pooled = out_rev.mean(dim=1)
 
-        graph_features_que = graph_features_que / graph_features_que.norm(dim=1, keepdim=True)
-        graph_features_rev = graph_features_rev / graph_features_rev.norm(dim=1, keepdim=True)
+        #norm L2
+        out_que_norm = out_que_pooled / out_que_pooled.norm(dim=1, keepdim=True)
+        out_rev_norm = out_rev_pooled / out_rev_pooled.norm(dim=1, keepdim=True)
 
         logit_scale = self.logit_scale.exp()
-        outputs = {}
-        outputs['logits_per_que'] = logit_scale * graph_features_que @ graph_features_rev.t()
-        outputs['logits_per_rev'] = outputs['logits_per_que'].t()
-        return outputs
+        entry = {}
+        entry['logits_per_que'] = logit_scale * out_que_norm @ out_rev_norm.t()
+        entry['logits_per_rev'] = entry['logits_per_que'].t()
+
+        return entry
 
 class SetCriterion(nn.Module):
     def __init__(self, weight_dict, losses):
@@ -58,32 +63,44 @@ class SetCriterion(nn.Module):
             losses.update(self.get_loss(loss, outputs, targets))
 
         return losses
+    
+def build_model(d_model = 256, 
+                dropout=0.1, 
+                activation="relu", 
+                pretrain = 'bert-base-uncased', 
+                device = 'cpu'
+            ):
+
+    weight_dict = {'loss_cont': 1}
+    losses = ['contrastive']
+
+    model = G2G(d_model, dropout, activation, pretrain)
+    criterion = SetCriterion(weight_dict=weight_dict, losses=losses)
+
+    model.to(device=device)
+    criterion.to(device=device)
+
+    return model , criterion
 
 if __name__ == "__main__":
-    sample_data_que = {
-        'sub_labels': torch.tensor([59,  17, 151, 151, 151, 151, 151, 151, 151, 151]),
-        'obj_labels': torch.tensor([101, 106, 151, 151, 151, 151, 151, 151, 151, 151]),
-        'rel_labels': torch.tensor([30, 22, 51, 51, 51, 51, 51, 51, 51, 51]),
-        'labels': torch.tensor([59,  17, 101, 106, 151, 151, 151, 151, 151, 151])
-    }
+    model = G2G(d_model=256)
+    
+    device = 'cpu'
 
-    sample_data_rev = {
-        'sub_labels': torch.tensor([59, 151, 151, 151, 151, 151, 151, 151, 151, 151]),
-        'obj_labels': torch.tensor([101, 151, 151, 151, 151, 151, 151, 151, 151, 151]),
-        'rel_labels': torch.tensor([30, 51, 51, 51, 51, 51, 51, 51, 51, 51]),
-        'labels': torch.tensor([59, 101, 151, 151, 151, 151, 151, 151, 151, 151])
-    }
-
-    graphs_que = [sample_data_que]
-    graphs_rev = [sample_data_rev]
-    # graph_encoder = GraphEncoder(d_model=512, nhead=8, nlayer=6, d_ffn=2048, dropout=0.1, activation="relu")
-    model = G2G(graph_layer_num=6)
-    output= model(graphs_que, graphs_rev)
-    print(output)
     weight_dict = {'loss_cont': 1}
     losses = ['contrastive']
 
     criterion = SetCriterion(weight_dict=weight_dict, losses=losses)
 
-    loss = criterion(output, None)
-    print(loss)
+    ann_file = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/Datasets/VisualGenome/Rev.json'
+    train_dataset, valid_dataset = build(ann_file)
+    dataloader = DataLoader(train_dataset, batch_size=32, collate_fn=custom_collate_fn)
+
+    for que, rev in dataloader:
+        que = [{k: v.to(device) for k, v in t.items()} for t in que]
+        rev = [{k: v.to(device) for k, v in t.items()} for t in rev]
+
+        entry = model(que, rev)
+        l = criterion(entry, None)
+        print(l)
+        break
