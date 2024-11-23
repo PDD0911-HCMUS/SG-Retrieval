@@ -82,25 +82,25 @@ def build_model(d_model = 256,
 
     return model , criterion
 
-if __name__ == "__main__":
-    model = G2G(d_model=256)
+# if __name__ == "__main__":
+#     model = G2G(d_model=256)
     
-    device = 'cpu'
+#     device = 'cpu'
 
-    weight_dict = {'loss_cont': 1}
-    losses = ['contrastive']
+#     weight_dict = {'loss_cont': 1}
+#     losses = ['contrastive']
 
-    criterion = SetCriterion(weight_dict=weight_dict, losses=losses)
+#     criterion = SetCriterion(weight_dict=weight_dict, losses=losses)
 
-    ann_file = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/Datasets/VisualGenome/Rev.json'
-    train_dataset, valid_dataset = build(ann_file)
-    dataloader = DataLoader(train_dataset, batch_size=32, collate_fn=custom_collate_fn)
+#     ann_file = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/Datasets/VisualGenome/Rev.json'
+#     train_dataset, valid_dataset = build(ann_file)
+#     dataloader = DataLoader(train_dataset, batch_size=32, collate_fn=custom_collate_fn)
 
-    for que, rev in dataloader:
-        que = [{k: v.to(device) for k, v in t.items()} for t in que]
-        rev = [{k: v.to(device) for k, v in t.items()} for t in rev]
+#     for que, rev in dataloader:
+#         que = [{k: v.to(device) for k, v in t.items()} for t in que]
+#         rev = [{k: v.to(device) for k, v in t.items()} for t in rev]
 
-        entry = model(que, rev)
-        l = criterion(entry, None)
-        print(l)
-        break
+#         entry = model(que, rev)
+#         l = criterion(entry, None)
+#         print(l)
+#         break
