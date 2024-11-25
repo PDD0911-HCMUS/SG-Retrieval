@@ -1,4 +1,4 @@
-import random 
+import os 
 from rich import traceback
 from datasets.dataV3 import build, custom_collate_fn
 from torch.utils.data import DataLoader
@@ -9,7 +9,7 @@ from typing import Iterable
 from rich.console import Console
 from rich.table import Table
 from rich.progress import Progress
-
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 def train_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
                     data_loader: Iterable, optimizer: torch.optim.Optimizer,
                     device: torch.device):
@@ -31,11 +31,10 @@ def train_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
             losses.backward()
             optimizer.step()
 
-            print(losses)
             running_loss += losses
 
             progress.update(task, advance=1, description=f"[cyan]Batch {batch_idx+1}/{len(data_loader)} Loss: {losses:.4f}")
-            break
+            
 
     epoch_loss = running_loss / len(data_loader)
     return epoch_loss
@@ -61,15 +60,15 @@ def validate_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
 
             progress.update(task, advance=1, description=f"[green]Batch {batch_idx+1}/{len(data_loader)} Loss: {losses:.4f}")
 
-            break
+            
 
     val_loss = running_loss / len(data_loader)
     return val_loss
 
 
 def main():
-    root_data = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/Datasets/VisualGenome/'
-    root_pth = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/ObjectDescriptionV2Controller/ckpt'
+    root_data = '/radish/phamd/duypd-proj/SG-Retrieval/Datasets/VisualGenome/'
+    root_pth = '/radish/phamd/duypd-proj/SG-Retrieval/ObjectDescriptionV2Controller/ckpt'
     ann_file = root_data + 'Rev.json'
     num_epochs = 100
     lr = 1e-4
@@ -79,6 +78,8 @@ def main():
     seed = 42
     np.random.seed(seed)
     torch.manual_seed(seed)
+
+    print(f"Using device: {device}")
 
     model, criterion = build_model(d_model=256, dropout=0.1, activation="relu", pretrain = 'bert-base-uncased', device = device)
 
@@ -122,7 +123,6 @@ def main():
             checkpoint_path = f"{root_pth}/model_epoch_{epoch + 1}.pth"
             torch.save(model.state_dict(), checkpoint_path)
             print(f"Model saved to {checkpoint_path}")
-        break
 
     console.print(table)
 
