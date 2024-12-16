@@ -14,6 +14,7 @@ from tqdm import tqdm
 from flask import Blueprint, request, jsonify, send_from_directory
 import os
 from flask_cors import CORS, cross_origin
+import psycopg2
 
 sgg_api = Blueprint('sgg', __name__)
 
@@ -268,7 +269,7 @@ def sgg_controller():
         probas = outputs['rel_logits'].softmax(-1)[0, :, :-1]
         probas_sub = outputs['sub_logits'].softmax(-1)[0, :, :-1]
         probas_obj = outputs['obj_logits'].softmax(-1)[0, :, :-1]
-        threshhold = 0.5
+        threshhold = 0.3
         keep = torch.logical_and(probas.max(-1).values > threshhold, torch.logical_and(probas_sub.max(-1).values > threshhold,
                                                                                 probas_obj.max(-1).values > threshhold))
 
@@ -351,7 +352,63 @@ def sgg_controller():
             Status = False, 
             Msg = str(e)
         )
-    
+
+def insert_sgg():
+    conn = psycopg2.connect(args.conn_str)
+    cursor = conn.cursor()
+    model = create_model()
+    vg_images = os.listdir(args.img_folder_vg)
+    sql = """INSERT INTO "Image2GraphEmbedding_V2" ("image_name","triplets") VALUES(%s,%s);"""
+    for file_name in tqdm(vg_images):
+        try:
+            im = Image.open(args.img_folder_vg + file_name)
+            img = transform(im).unsqueeze(0)
+            # propagate through the model
+            outputs = model(img)
+            # keep only predictions with >0.3 confidence
+            probas = outputs['rel_logits'].softmax(-1)[0, :, :-1]
+            probas_sub = outputs['sub_logits'].softmax(-1)[0, :, :-1]
+            probas_obj = outputs['obj_logits'].softmax(-1)[0, :, :-1]
+            threshhold = 0.3
+            keep = torch.logical_and(probas.max(-1).values > threshhold, torch.logical_and(probas_sub.max(-1).values > threshhold,
+                                                                                    probas_obj.max(-1).values > threshhold))
+            topk = 10 # display up to 10 images
+            keep_queries = torch.nonzero(keep, as_tuple=True)[0]
+            indices = torch.argsort(-probas[keep_queries].max(-1)[0] * probas_sub[keep_queries].max(-1)[0] * probas_obj[keep_queries].max(-1)[0])[:topk]
+            keep_queries = keep_queries[indices]
+            # save the attention weights
+            conv_features, dec_attn_weights_sub, dec_attn_weights_obj = [], [], []
+            hooks = [
+                model.backbone[-2].register_forward_hook(
+                    lambda self, input, output: conv_features.append(output)
+                ),
+                model.transformer.decoder.layers[-1].cross_attn_sub.register_forward_hook(
+                    lambda self, input, output: dec_attn_weights_sub.append(output[1])
+                ),
+                model.transformer.decoder.layers[-1].cross_attn_obj.register_forward_hook(
+                    lambda self, input, output: dec_attn_weights_obj.append(output[1])
+                )]
+            with torch.no_grad():
+                # propagate through the model
+                outputs = model(img)
+                for hook in hooks:
+                    hook.remove()
+                # don't need the list anymore
+                conv_features = conv_features[0]
+                dec_attn_weights_sub = dec_attn_weights_sub[0]
+                dec_attn_weights_obj = dec_attn_weights_obj[0]
+                t = []
+                for idx in keep_queries:
+                    txt = CLASSES[probas_sub[idx].argmax()] + ' ' + REL_CLASSES[probas[idx].argmax()] + ' ' + CLASSES[probas_obj[idx].argmax()]
+                    t.append(txt)
+
+                if(len(t) >= 7):
+                    cursor.execute(sql,(file_name ,t) )
+                    conn.commit()
+        except Exception as e:
+            continue
+            # break
+
 @sgg_api.route('/res-sgg/<filename>')
 def upload_image(filename):
     if('object+' in filename):
@@ -360,3 +417,6 @@ def upload_image(filename):
         return send_from_directory(args.dir_upload + filename.replace('.jpg', '').replace('graph+', ''), filename)
     if('triplet+' in filename):
         return send_from_directory(args.dir_upload + filename.replace('.jpg', '').replace('triplet+', ''), filename)
+    
+if __name__ == "__main__":
+    insert_sgg()

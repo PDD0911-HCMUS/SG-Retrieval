@@ -2,8 +2,8 @@ import torch
 from torch import nn
 from transformers import BertModel
 
-from datasets.dataV3 import build, custom_collate_fn
-from torch.utils.data import DataLoader
+# from datasets.dataV3 import build, custom_collate_fn
+# from torch.utils.data import DataLoader
 class GraphEncoder(nn.Module):
 
     def __init__(self, d_model=512, dropout=0.1, activation="relu", pretrain = 'bert-base-uncased'):

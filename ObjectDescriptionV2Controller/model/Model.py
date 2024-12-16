@@ -4,8 +4,8 @@ from torch import nn
 from .GraphEncoderV2 import GraphEncoder
 import numpy as np
 
-from datasets.dataV3 import build, custom_collate_fn
-from torch.utils.data import DataLoader
+# from datasets.dataV3 import build, custom_collate_fn
+# from torch.utils.data import DataLoader
 
 class G2G(nn.Module):
     def __init__(self, d_model = 256, dropout=0.1, activation="relu", pretrain = 'bert-base-uncased'):
@@ -30,15 +30,13 @@ class G2G(nn.Module):
         out_que_norm = out_que_pooled / out_que_pooled.norm(dim=1, keepdim=True)
         out_rev_norm = out_rev_pooled / out_rev_pooled.norm(dim=1, keepdim=True)
 
-        print(out_que_norm.size())
-        print(out_rev_norm.size())
-
         logit_scale = self.logit_scale.exp()
         entry = {}
         entry['logits_per_que'] = logit_scale * out_que_norm @ out_rev_norm.t()
         entry['logits_per_rev'] = entry['logits_per_que'].t()
 
-        return entry
+        #return entry
+        return out_que_norm, out_rev_norm
 
 class SetCriterion(nn.Module):
     def __init__(self, weight_dict, losses):
@@ -85,26 +83,26 @@ def build_model(d_model = 256,
 
     return model , criterion
 
-if __name__ == "__main__":
-    model = G2G(d_model=256)
+# if __name__ == "__main__":
+#     model = G2G(d_model=256)
     
-    device = 'cpu'
+#     device = 'cpu'
 
-    weight_dict = {'loss_cont': 1}
-    losses = ['contrastive']
+#     weight_dict = {'loss_cont': 1}
+#     losses = ['contrastive']
 
-    criterion = SetCriterion(weight_dict=weight_dict, losses=losses)
+#     criterion = SetCriterion(weight_dict=weight_dict, losses=losses)
 
-    ann_file = '/radish/phamd/duypd-proj/SG-Retrieval/Datasets/VisualGenome/Rev.json'
-    train_dataset, valid_dataset = build(ann_file)
-    dataloader = DataLoader(train_dataset, batch_size=1, collate_fn=custom_collate_fn)
+    # ann_file = '/radish/phamd/duypd-proj/SG-Retrieval/Datasets/VisualGenome/Rev.json'
+    # train_dataset, valid_dataset = build(ann_file)
+    # dataloader = DataLoader(train_dataset, batch_size=1, collate_fn=custom_collate_fn)
 
-    for que, rev in dataloader:
-        que = [{k: v.to(device) for k, v in t.items()} for t in que]
-        rev = [{k: v.to(device) for k, v in t.items()} for t in rev]
+    # for que, rev in dataloader:
+    #     que = [{k: v.to(device) for k, v in t.items()} for t in que]
+    #     rev = [{k: v.to(device) for k, v in t.items()} for t in rev]
 
-        entry = model(que, rev)
-        print(entry)
-        l = criterion(entry, None)
-        print(l)
-        break
+    #     entry = model(que, rev)
+    #     print(entry)
+    #     l = criterion(entry, None)
+    #     print(l)
+    #     break
