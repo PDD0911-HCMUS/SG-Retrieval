@@ -11,3 +11,13 @@ Datasets
 
 nltk_data/*
 check_gt.json
+khangTA/vncorenlp/VnCoreNLP-1.2.jar
+khangTA/vncorenlp/models/wordsegmenter/wordsegmenter.rdr
+khangTA/vncorenlp/models/wordsegmenter/vi-vocab
+khangTA/vncorenlp/models/postagger/vi-tagger
+khangTA/vncorenlp/models/ner/vi-pretrainedembeddings.xz
+khangTA/vncorenlp/models/ner/vi-ner.xz
+khangTA/vncorenlp/models/ner/vi-500brownclusters.xz
+khangTA/vncorenlp/models/dep/vi-dep.xz
+
+khangTA

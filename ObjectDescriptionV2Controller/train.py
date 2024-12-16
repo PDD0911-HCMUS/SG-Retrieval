@@ -9,7 +9,7 @@ from typing import Iterable
 from rich.console import Console
 from rich.table import Table
 from rich.progress import Progress
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 def train_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
                     data_loader: Iterable, optimizer: torch.optim.Optimizer,
                     device: torch.device):
@@ -68,8 +68,8 @@ def validate_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
 
 def main():
     root_data = '/radish/phamd/duypd-proj/SG-Retrieval/Datasets/VisualGenome/'
-    root_pth = '/radish/phamd/duypd-proj/SG-Retrieval/ObjectDescriptionV2Controller/ckpt'
-    ann_file = root_data + 'Rev.json'
+    root_pth = '/radish/phamd/duypd-proj/SG-Retrieval/ObjectDescriptionV2Controller/ckpt_3'
+    ann_file = root_data + 'Rev_v2.json'
     num_epochs = 100
     lr = 1e-4
     weight_decay = 1e-4
@@ -89,8 +89,8 @@ def main():
     
     train_dataset, valid_dataset = build(ann_file)
 
-    dataloader_train = DataLoader(train_dataset, batch_size=32, collate_fn=custom_collate_fn)
-    dataloader_valid = DataLoader(valid_dataset, batch_size=32, collate_fn=custom_collate_fn)
+    dataloader_train = DataLoader(train_dataset, batch_size=2, collate_fn=custom_collate_fn)
+    dataloader_valid = DataLoader(valid_dataset, batch_size=2, collate_fn=custom_collate_fn)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, lr_drop)

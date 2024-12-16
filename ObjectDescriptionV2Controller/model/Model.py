@@ -30,8 +30,8 @@ class G2G(nn.Module):
         out_que_norm = out_que_pooled / out_que_pooled.norm(dim=1, keepdim=True)
         out_rev_norm = out_rev_pooled / out_rev_pooled.norm(dim=1, keepdim=True)
 
-        print(out_que_norm.size())
-        print(out_rev_norm.size())
+        # print(out_que_norm.size())
+        # print(out_rev_norm.size())
 
         logit_scale = self.logit_scale.exp()
         entry = {}

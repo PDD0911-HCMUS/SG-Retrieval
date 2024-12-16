@@ -1,7 +1,7 @@
 import pandas as pd
 import torch
 from torch.utils.data import Dataset, random_split, DataLoader
-from transformers import BertTokenizer
+from transformers import AutoTokenizer
 import unicodedata
 
 classes = {
@@ -9,14 +9,13 @@ classes = {
     'Quyết định': 1,
     'Báo cáo': 2,
     'Thông báo': 3,
-    'Kế hoạch': 4,
-    'Tờ trình': 5,
-    'Thư mời': 6,
-    'Đơn': 7,
-    'Giấy mời': 8
+    'Tờ trình': 4,
+    'Thư mời': 5,
+    'Đơn': 6,
+    'Giấy mời': 7
 }
 
-tokenizer = BertTokenizer.from_pretrained('vinai/phobert-base')
+tokenizer = AutoTokenizer.from_pretrained('vinai/phobert-base-v2')
 
 class CreateData(Dataset):
     def __init__(self, csv_file):
@@ -39,7 +38,7 @@ def transforms_data(input_text, label):
     input_text = input_text.lower()
     # input_text = unicodedata.normalize('NFD', input_text)
     # input_text = ''.join(c for c in input_text if unicodedata.category(c) != 'Mn')
-    token = tokenizer(input_text, padding='max_length', truncation=True, max_length=128, return_tensors="pt")
+    token = tokenizer(input_text, padding='max_length', truncation=True, max_length=32, return_tensors="pt")
 
     input_tok = token['input_ids'][0]
     imput_msk = token['attention_mask'][0]
