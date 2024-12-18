@@ -4,6 +4,8 @@ anno_valid = 'Datasets/VisualGenome/val.json'
 img_folder_vg = 'Datasets/VisualGenome/VG_100K/'
 dir_upload = 'Datasets/upload/'
 
+img_folder_mscoco = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/Datasets/MSCOCO/train2017/'
+
 batch_size = 12
 num_workers = 0
 num_epochs = 200
