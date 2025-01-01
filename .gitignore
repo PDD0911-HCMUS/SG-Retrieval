@@ -13,3 +13,5 @@ nltk_data/*
 check_gt.json
 
 khangTA
+
+EGTRController/pretrained_detr_vg

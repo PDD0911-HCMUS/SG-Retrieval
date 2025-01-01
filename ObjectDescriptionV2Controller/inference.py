@@ -152,6 +152,22 @@ def make_dataset_posgres_insert_all_MiniLM_L6_v2(out_que, out_rev, que_im, rev_i
         if conn is not None:
             conn.close()
 
+def make_dataset_posgres_insert_MSCOCO(out_que, out_rev, que_im, rev_im):
+    # connect to DB
+    try:
+        conn = psycopg2.connect(conn_str)
+        cursor = conn.cursor()
+        sql = """INSERT INTO "GraphRetrieval_V2_MSCOCO" ("image_name_qu","que_embeding","image_name_rev","rev_embeding") VALUES(%s,%s,%s,%s);"""
+        for o_q, o_r, q_i, r_i in zip(out_que, out_rev, que_im, rev_im):
+            # print(q_i, o_q.size(), r_i, o_r.size())
+            cursor.execute(sql,(q_i,o_q.tolist(),r_i, o_r.tolist()) )
+            conn.commit()
+    except Exception as e:
+        print(str(e))
+    finally:
+        if conn is not None:
+            conn.close()
+
 def make_dataset_posgres(model: torch.nn.Module, device: torch.device):
 
     model.eval()
@@ -208,6 +224,32 @@ def make_dataset_posgres_all_MiniLM_L6_v2(model: torch.nn.Module, device: torch.
                 make_dataset_posgres_insert_all_MiniLM_L6_v2(out_que[0], out_rev[0], q_im, r_im)
 
                 progress.update(task, advance=1, description=f"[cyan]Batch {batch_idx+1}/{len(data)}")
+                # break
+
+def make_dataset_posgres_mscoco(model: torch.nn.Module, device: torch.device):
+
+    model.eval()
+    root_data = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/Datasets/MSCOCO/'
+    ann_file = root_data + 'Rev_v2_mscoco.json'
+    dataset = build(ann_file)
+    dataloader = DataLoader(dataset, batch_size=32, collate_fn=custom_collate_fn)
+
+    with Progress() as progress:
+            task = progress.add_task("[cyan]Creating...", total=len(dataloader))
+            for batch_idx, (que, rev) in enumerate(dataloader):
+                que_i = [{k: v.to(device) for k, v in t.items() if k != 'image_id'} for t in que]
+                que_im = [{k: v for k, v in t.items() if k == 'image_id'} for t in que ]
+
+                rev_i = [{k: v.to(device) for k, v in t.items() if k != 'image_id'} for t in rev]
+                rev_im = [{k: v for k, v in t.items() if k == 'image_id'} for t in rev ]
+
+                out_que, out_rev = model(que_i, rev_i)
+                q_im = [item['image_id'] for item in que_im]
+                r_im = [item['image_id'] for item in rev_im]
+
+                make_dataset_posgres_insert_MSCOCO(out_que, out_rev, q_im, r_im)
+
+                progress.update(task, advance=1, description=f"[cyan]Batch {batch_idx+1}/{len(dataloader)}")
                 # break
 
 def get_set_query():
@@ -331,50 +373,51 @@ def get_set():
     return image_set, triplet_set
 def main():
 
-    # root_ckpt = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/ObjectDescriptionV2Controller/ckpt/'
-    # ckpt = root_ckpt + 'model_epoch_80.pth'
-    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    # model, _ = build_model(d_model=256, dropout=0.1, activation="relu", pretrain = 'bert-base-uncased', device = device)
-    # model.load_state_dict(torch.load(ckpt, map_location=device))
+    root_ckpt = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/ObjectDescriptionV2Controller/ckpt/'
+    ckpt = root_ckpt + 'model_epoch_80.pth'
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model, _ = build_model(d_model=256, dropout=0.1, activation="relu", pretrain = 'bert-base-uncased', device = device)
+    model.load_state_dict(torch.load(ckpt, map_location=device))
 
-    model = get_model()
+    # model = get_model()
     
     # make_dataset_posgres_all_MiniLM_L6_v2(model, device)
     # make_dataset_posgres(model,device)
+    make_dataset_posgres_mscoco(model,device)
 
-    trip =  [
-        "fork on table",
-                "plate on table",
-                "fork near plate",
-                "fork on plate",
-                "food on plate"
-    ]
+    # trip =  [
+    #     "fork on table",
+    #             "plate on table",
+    #             "fork near plate",
+    #             "fork on plate",
+    #             "food on plate"
+    # ]
 
-    selected_images = faiss_retrieval_controller_all_MiniLM_L6_v2(trip, model)
-    print(selected_images)
-    print('Done')
-    image_set, triplet_set = get_set()
-    text_triplets = set(trip)
-    top_k = 100
-    combined = list(zip(triplet_set, image_set))
-    similarities = [(filename, jaccard_similarity(text_triplets, triplet_set), triplet_set) for triplet_set, filename in combined]
-    top_k_res = sorted(similarities, key=lambda x: x[1], reverse=True)[:top_k]
+    # selected_images = faiss_retrieval_controller_all_MiniLM_L6_v2(trip, model)
+    # print(selected_images)
+    # print('Done')
+    # image_set, triplet_set = get_set()
+    # text_triplets = set(trip)
+    # top_k = 100
+    # combined = list(zip(triplet_set, image_set))
+    # similarities = [(filename, jaccard_similarity(text_triplets, triplet_set), triplet_set) for triplet_set, filename in combined]
+    # top_k_res = sorted(similarities, key=lambda x: x[1], reverse=True)[:top_k]
 
-    img_id = []
-    trip_by_im = []
-    for i, s, t in top_k_res:
-        t_json = {
-            "image_id": i,
-            "trip": t
-        }
-        img_id.append(i)
-        trip_by_im.append(t_json)
+    # img_id = []
+    # trip_by_im = []
+    # for i, s, t in top_k_res:
+    #     t_json = {
+    #         "image_id": i,
+    #         "trip": t
+    #     }
+    #     img_id.append(i)
+    #     trip_by_im.append(t_json)
 
-    P_5 = calculate_precision_at_k(img_id, selected_images, k=10)
-    P_10 = calculate_precision_at_k(img_id, selected_images, k=50)
-    P_50 = calculate_precision_at_k(img_id, selected_images, k=100)
+    # P_5 = calculate_precision_at_k(img_id, selected_images, k=10)
+    # P_10 = calculate_precision_at_k(img_id, selected_images, k=50)
+    # P_50 = calculate_precision_at_k(img_id, selected_images, k=100)
 
-    print(P_5, P_10, P_50)
+    # print(P_5, P_10, P_50)
 
     # plt.figure(figsize=(15, 10)) 
     # for idx, file in enumerate(selected_images):  
