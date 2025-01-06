@@ -12,7 +12,6 @@ class GraphEncoder(nn.Module):
         self.model_embeding = BertModel.from_pretrained(pretrain)
 
         self.activation = _get_activation_fn(activation)
-
         
         self.sub_embed = nn.Sequential(
                             nn.Linear(768, 512),
@@ -45,8 +44,7 @@ class GraphEncoder(nn.Module):
         self.mlp = torch.nn.Sequential(
                     torch.nn.Linear(4*d_model, 512),
                     torch.nn.ReLU(),
-                    torch.nn.Linear(512, 256)
-)
+                    torch.nn.Linear(512, 256))
         
         self._reset_parameters()
         self.d_model = d_model
