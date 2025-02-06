@@ -11,6 +11,7 @@ import faiss
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from sentence_transformers import SentenceTransformer
+from FlagEmbedding import BGEM3FlagModel
 import json
 
 hostname = 'localhost'
@@ -152,6 +153,48 @@ def make_dataset_posgres_insert_all_MiniLM_L6_v2(out_que, out_rev, que_im, rev_i
         if conn is not None:
             conn.close()
 
+def make_dataset_posgres_insert_bge_m3(out_que, out_rev, que_im, rev_im):
+    # connect to DB
+    try:
+        conn = psycopg2.connect(conn_str)
+        cursor = conn.cursor()
+        sql = """INSERT INTO "GraphRetrieval_bge_m3" ("image_name_qu","que_embeding","image_name_rev","rev_embeding") VALUES(%s,%s,%s,%s);"""
+        cursor.execute(sql,(que_im,out_que.tolist(),rev_im, out_rev.tolist()) )
+        conn.commit()
+    except Exception as e:
+        print(str(e))
+    finally:
+        if conn is not None:
+            conn.close()
+
+def make_dataset_posgres_insert_bge_m3_MSCOCO(out_que, out_rev, que_im, rev_im):
+    # connect to DB
+    try:
+        conn = psycopg2.connect(conn_str)
+        cursor = conn.cursor()
+        sql = """INSERT INTO "GraphRetrieval_bge_m3_MSCOCO" ("image_name_qu","que_embeding","image_name_rev","rev_embeding") VALUES(%s,%s,%s,%s);"""
+        cursor.execute(sql,(que_im,out_que.tolist(),rev_im, out_rev.tolist()) )
+        conn.commit()
+    except Exception as e:
+        print(str(e))
+    finally:
+        if conn is not None:
+            conn.close()
+
+def make_dataset_posgres_insert_all_MiniLM_L6_v2_MSCOCO(out_que, out_rev, que_im, rev_im):
+    # connect to DB
+    try:
+        conn = psycopg2.connect(conn_str)
+        cursor = conn.cursor()
+        sql = """INSERT INTO "GraphRetrieval_all-MiniLM-L6-v2_MSCOCO" ("image_name_qu","que_embeding","image_name_rev","rev_embeding") VALUES(%s,%s,%s,%s);"""
+        cursor.execute(sql,(que_im,out_que.tolist(),rev_im, out_rev.tolist()) )
+        conn.commit()
+    except Exception as e:
+        print(str(e))
+    finally:
+        if conn is not None:
+            conn.close()
+
 def make_dataset_posgres_insert_MSCOCO(out_que, out_rev, que_im, rev_im):
     # connect to DB
     try:
@@ -193,6 +236,32 @@ def make_dataset_posgres(model: torch.nn.Module, device: torch.device):
 
                 progress.update(task, advance=1, description=f"[cyan]Batch {batch_idx+1}/{len(dataloader)}")
 
+def make_dataset_posgres_mscoco(model: torch.nn.Module, device: torch.device):
+
+    model.eval()
+    root_data = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/Datasets/MSCOCO/'
+    ann_file = root_data + 'Rev_v2_mscoco.json'
+    dataset = build(ann_file)
+    dataloader = DataLoader(dataset, batch_size=32, collate_fn=custom_collate_fn)
+
+    with Progress() as progress:
+            task = progress.add_task("[cyan]Creating...", total=len(dataloader))
+            for batch_idx, (que, rev) in enumerate(dataloader):
+                que_i = [{k: v.to(device) for k, v in t.items() if k != 'image_id'} for t in que]
+                que_im = [{k: v for k, v in t.items() if k == 'image_id'} for t in que ]
+
+                rev_i = [{k: v.to(device) for k, v in t.items() if k != 'image_id'} for t in rev]
+                rev_im = [{k: v for k, v in t.items() if k == 'image_id'} for t in rev ]
+
+                out_que, out_rev = model(que_i, rev_i)
+                q_im = [item['image_id'] for item in que_im]
+                r_im = [item['image_id'] for item in rev_im]
+
+                make_dataset_posgres_insert_MSCOCO(out_que, out_rev, q_im, r_im)
+
+                progress.update(task, advance=1, description=f"[cyan]Batch {batch_idx+1}/{len(dataloader)}")
+                # break
+
 def make_dataset_posgres_all_MiniLM_L6_v2(model: torch.nn.Module, device: torch.device):
 
     model.eval()
@@ -226,30 +295,103 @@ def make_dataset_posgres_all_MiniLM_L6_v2(model: torch.nn.Module, device: torch.
                 progress.update(task, advance=1, description=f"[cyan]Batch {batch_idx+1}/{len(data)}")
                 # break
 
-def make_dataset_posgres_mscoco(model: torch.nn.Module, device: torch.device):
+def make_dataset_posgres_all_MiniLM_L6_v2_MSCOCO(model: torch.nn.Module, device: torch.device):
 
     model.eval()
     root_data = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/Datasets/MSCOCO/'
     ann_file = root_data + 'Rev_v2_mscoco.json'
-    dataset = build(ann_file)
-    dataloader = DataLoader(dataset, batch_size=32, collate_fn=custom_collate_fn)
+    # dataset = build_v2(ann_file)
+    # dataloader = DataLoader(dataset, batch_size=1)
+
+    with open(ann_file, 'r') as f:
+        data = json.load(f)
 
     with Progress() as progress:
-            task = progress.add_task("[cyan]Creating...", total=len(dataloader))
-            for batch_idx, (que, rev) in enumerate(dataloader):
-                que_i = [{k: v.to(device) for k, v in t.items() if k != 'image_id'} for t in que]
-                que_im = [{k: v for k, v in t.items() if k == 'image_id'} for t in que ]
+            task = progress.add_task("[cyan]Creating...", total=len(data))
+            for batch_idx, item in enumerate(data):
 
-                rev_i = [{k: v.to(device) for k, v in t.items() if k != 'image_id'} for t in rev]
-                rev_im = [{k: v for k, v in t.items() if k == 'image_id'} for t in rev ]
+                encoded_triplets_que = [", ".join(item['qe']['trip'])]
+                encoded_triplets_rev = [", ".join(item['rev']['trip'])]
 
-                out_que, out_rev = model(que_i, rev_i)
-                q_im = [item['image_id'] for item in que_im]
-                r_im = [item['image_id'] for item in rev_im]
+                # out_que, out_rev = model(que_i, rev_i)
+                out_que = model.encode(encoded_triplets_que)
+                out_que = torch.tensor(out_que)
 
-                make_dataset_posgres_insert_MSCOCO(out_que, out_rev, q_im, r_im)
+                out_rev = model.encode(encoded_triplets_rev)
+                out_rev = torch.tensor(out_rev)
 
-                progress.update(task, advance=1, description=f"[cyan]Batch {batch_idx+1}/{len(dataloader)}")
+                q_im = item['qe']["image_id"]
+                r_im = item['rev']["image_id"]
+
+                make_dataset_posgres_insert_all_MiniLM_L6_v2_MSCOCO(out_que[0], out_rev[0], q_im, r_im)
+
+                progress.update(task, advance=1, description=f"[cyan]Batch {batch_idx+1}/{len(data)}")
+                # break
+
+def make_dataset_posgres_bge_m3(model: torch.nn.Module, device: torch.device):
+
+    model.eval()
+    root_data = '/radish/phamd/duypd-proj/SG-Retrieval/Datasets/VisualGenome/'
+    ann_file = root_data + 'Rev_v2.json'
+    # dataset = build_v2(ann_file)
+    # dataloader = DataLoader(dataset, batch_size=1)
+
+    with open(ann_file, 'r') as f:
+        data = json.load(f)
+
+    with Progress() as progress:
+            task = progress.add_task("[cyan]Creating...", total=len(data))
+            for batch_idx, item in enumerate(data):
+
+                encoded_triplets_que = [", ".join(item['qe']['trip'])]
+                encoded_triplets_rev = [", ".join(item['rev']['trip'])]
+
+                # out_que, out_rev = model(que_i, rev_i)
+                out_que = model.encode(encoded_triplets_que)
+                out_que = torch.tensor(out_que)
+
+                out_rev = model.encode(encoded_triplets_rev)
+                out_rev = torch.tensor(out_rev)
+
+                q_im = item['qe']["image_id"]
+                r_im = item['rev']["image_id"]
+
+                make_dataset_posgres_insert_all_MiniLM_L6_v2(out_que[0], out_rev[0], q_im, r_im)
+
+                progress.update(task, advance=1, description=f"[cyan]Batch {batch_idx+1}/{len(data)}")
+                # break
+
+def make_dataset_posgres_bge_m3_MSCOCO(model: torch.nn.Module, device: torch.device):
+
+    # model.eval()
+    root_data = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/Datasets/MSCOCO/'
+    ann_file = root_data + 'Rev_v2_mscoco.json'
+    # dataset = build_v2(ann_file)
+    # dataloader = DataLoader(dataset, batch_size=1)
+
+    with open(ann_file, 'r') as f:
+        data = json.load(f)
+
+    with Progress() as progress:
+            task = progress.add_task("[cyan]Creating...", total=len(data))
+            for batch_idx, item in enumerate(data):
+
+                encoded_triplets_que = [", ".join(item['qe']['trip'])]
+                encoded_triplets_rev = [", ".join(item['rev']['trip'])]
+
+                # out_que, out_rev = model(que_i, rev_i)
+                out_que = model.encode(encoded_triplets_que,batch_size=12, max_length=512)['dense_vecs']
+                out_que = torch.tensor(out_que)
+
+                out_rev = model.encode(encoded_triplets_rev,batch_size=12, max_length=512)['dense_vecs']
+                out_rev = torch.tensor(out_rev)
+
+                q_im = item['qe']["image_id"]
+                r_im = item['rev']["image_id"]
+
+                make_dataset_posgres_insert_bge_m3_MSCOCO(out_que[0], out_rev[0], q_im, r_im)
+
+                progress.update(task, advance=1, description=f"[cyan]Batch {batch_idx+1}/{len(data)}")
                 # break
 
 def get_set_query():
@@ -331,8 +473,13 @@ def faiss_retrieval_controller_all_MiniLM_L6_v2(trip, model):
     selected_images = [images[i] for i in I[0]]
     return selected_images
 
-def get_model():
+def get_model_all_MiniLM_L6_v2():
     model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
+    return model
+
+def get_model_bge_m3():
+    model = BGEM3FlagModel('BAAI/bge-m3',  
+                       use_fp16=True)
     return model
 
 def calculate_precision_at_k(ground_truth, retrieved_results, k):
@@ -371,19 +518,24 @@ def get_set():
         triplet_set.append(set(parse_postgres_array(row[1])))
 
     return image_set, triplet_set
+
 def main():
 
     root_ckpt = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/ObjectDescriptionV2Controller/ckpt/'
-    ckpt = root_ckpt + 'model_epoch_80.pth'
+    ckpt = root_ckpt + 'model_MSCOCO_epoch_34.pth'
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model, _ = build_model(d_model=256, dropout=0.1, activation="relu", pretrain = 'bert-base-uncased', device = device)
     model.load_state_dict(torch.load(ckpt, map_location=device))
 
-    # model = get_model()
+    # model = get_model_all_MiniLM_L6_v2()
+    # model = get_model_bge_m3()
     
     # make_dataset_posgres_all_MiniLM_L6_v2(model, device)
     # make_dataset_posgres(model,device)
     make_dataset_posgres_mscoco(model,device)
+    # make_dataset_posgres_all_MiniLM_L6_v2_MSCOCO(model, device)
+
+    # make_dataset_posgres_bge_m3_MSCOCO(model, device)
 
     # trip =  [
     #     "fork on table",

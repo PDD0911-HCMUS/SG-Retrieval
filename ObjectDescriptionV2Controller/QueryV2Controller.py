@@ -167,7 +167,7 @@ def faiss_retrieval_controller(trip, model):
     D, I = index.search(input_embedding, k=50)
     print("Indices:", I[0])
     selected_images = [images[i] for i in I[0]]
-    return selected_images
+    return selected_images, D
 
 def get_model():
 
@@ -211,10 +211,12 @@ def find_matcher():
         text_triplets = data['triplet']
         top_k = 50
 
-        selected_images = faiss_retrieval_controller(text_triplets, model)
+        selected_images, dist = faiss_retrieval_controller(text_triplets, model)
+        print(dist)
 
         res = {
             "imgs": selected_images,
+            "dist": dist[0].tolist(),
             "triplets": None
         }
         return jsonify(
