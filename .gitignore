@@ -15,3 +15,7 @@ check_gt.json
 khangTA
 
 EGTRController/pretrained_detr_vg
+CrossEncoderController/vg_test.json
+CrossEncoderController/vg_train.json
+CrossEncoderController/vg_val.json
+CrossEncoderController/vg.json
