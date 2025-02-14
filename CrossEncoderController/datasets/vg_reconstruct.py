@@ -88,9 +88,10 @@ def main_re_construct():
 
     with Progress() as progress:
         task = progress.add_task("[cyan]Creating VG annotation...", total=len(sg_json))
-        for sg, rg in zip(sg_json, rg_json):
+        for sg, rg in zip(sg_json[:10], rg_json[:10]):
 
             if(sg['image_id'] == rg['id']):
+                print(f"{sg['image_id']} and {rg['id']}")
 
                 #Create images based on MSCOCO structure
                 images.append(get_image_data(sg['image_id'], image_json))
@@ -101,6 +102,8 @@ def main_re_construct():
                 region_mappings = create_region_mappings(return_objs_rg)
 
                 #Create annotation based on MSCOCO structure
+                if(return_objs_sg == None):
+                    print("true")
                 for item in return_objs_sg:
 
                     phase_sub = nearest_phase_bbox(item['bbox_sub'], region_mappings)
