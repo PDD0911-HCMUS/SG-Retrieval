@@ -178,6 +178,7 @@ def get_model():
     model.load_state_dict(torch.load(ckpt, map_location=device))
 
     return model
+
 def get_set():
     imgs , queries = get_set_query()
     query = """
