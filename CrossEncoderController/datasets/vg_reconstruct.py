@@ -3,7 +3,11 @@ import json
 import random
 from PIL import Image,ImageDraw
 from scipy.spatial import distance
-from rich.progress import Progress
+from rich.progress import Progress, track
+from rich.console import Console
+import rich.progress
+import gc
+import time
 
 def compute_iou(bbox1, bbox2):
     x1, y1, w1, h1 = bbox1
@@ -190,6 +194,106 @@ def main_re_construct():
     id_counter_val = prepare_data(sg_val, rg_val, id_counter_train, image_json, 'val')
     _ = prepare_data(sg_test, rg_test, id_counter_val, image_json, 'test')
 
+def process_region_graph(region):
+
+    return {
+        "region_id": region["region_id"],
+        "phrase": region["phrase"],
+        "bbox": [region["x"], region["y"], region["width"], region["height"]],
+        "objects": [
+            {"name": obj["name"], "bbox": [obj["x"], obj["y"], obj["w"], obj["h"]], "object_id": obj["object_id"]}
+            for obj in region["objects"]
+            if "name" in obj
+        ],
+        "relationships": [
+            {k: v for k, v in rel.items() if k != "synsets"}
+            for rel in region["relationships"]
+        ]
+    }
 
 if __name__ == "__main__":
-    main_re_construct()
+    # with rich.progress.open('/home/duypd/ThisPC-DuyPC/SG-Retrieval/Datasets/VisualGenome/anno_reltr/train.json') as f:
+    #     train_json = json.load(f)
+
+    # with rich.progress.open('/home/duypd/ThisPC-DuyPC/SG-Retrieval/Datasets/VisualGenome/anno_reltr/val.json') as f:
+    #     val_json = json.load(f)
+
+    # with rich.progress.open('/home/duypd/ThisPC-DuyPC/SG-Retrieval/Datasets/VisualGenome/anno_reltr/test.json') as f:
+    #     test_json = json.load(f)
+
+    # with rich.progress.open('/home/duypd/ThisPC-DuyPC/SG-Retrieval/Datasets/VisualGenome/anno_org/region_graphs.json') as f:
+    #     rg_json = json.load(f)
+
+    # im_train_set = {img["id"] for img in train_json['images']}
+    # im_val_set = {img["id"] for img in val_json['images']}
+    # im_test_set = {img["id"] for img in test_json['images']}
+
+    # image_to_regions = {rg["image_id"]: rg["regions"] for rg in rg_json}
+
+    # print(type(image_to_regions))
+    # print(image_to_regions[1])
+
+    # train_data = [
+    #     {
+    #         "image_id": rg['image_id'], 
+    #         "regions": [
+    #             process_region_graph(region) 
+    #             for region in rg["regions"]]
+    #     }
+    #     for rg in rg_json if rg['image_id'] in im_train
+    #     if any(region.get("relationships") for region in obj["regions"])
+    # ]
+
+    # rg_v2_json = [
+    #     {
+    #         "image_id": obj["image_id"],
+    #         "regions": [
+    #             process_region_graph(region)
+    #             for region in obj["regions"]
+    #             if region.get("relationships")
+    #         ]
+    #     }
+    #     for obj in rg_json
+    #     if "regions" in obj and any(region.get("relationships") for region in obj["regions"]) and obj["image_id"] in im_test_set
+    # ]
+
+    # with open(os.getcwd() + f"/test_data.json", 'w') as f:
+    #     json.dump(rg_v2_json, f)
+
+    # print(f"test_data.json")
+
+    with rich.progress.open('/home/duypd/ThisPC-DuyPC/SG-Retrieval/CrossEncoderController/train_data.json') as f:
+        train_json = json.load(f)
+
+    with rich.progress.open('/home/duypd/ThisPC-DuyPC/SG-Retrieval/CrossEncoderController/val_data.json') as f:
+        val_json = json.load(f)
+
+    with rich.progress.open('/home/duypd/ThisPC-DuyPC/SG-Retrieval/CrossEncoderController/test_data.json') as f:
+        test_json = json.load(f)
+
+    print(len(train_json))
+    print(len(val_json))
+    print(len(test_json))
+
+    check_item = val_json[100]
+    print(len(check_item['regions']))
+    # with open(os.getcwd() + f"/check_train_data.json", 'w') as f:
+    #     json.dump(train_json[0], f)
+
+    vg_image_dir = "/home/duypd/ThisPC-DuyPC/SG-Retrieval/Datasets/VisualGenome/VG_100K/"
+
+    image = Image.open(vg_image_dir + str(check_item['image_id']) + '.jpg')
+
+    draw = ImageDraw.Draw(image)
+
+    for item in check_item['regions']:
+        x, y, w, h = item['bbox'][0], item['bbox'][1], item['bbox'][2], item['bbox'][3]
+        phrase = item['phrase']
+        draw.rectangle([x, y, x + w, y + h], outline="blue", width=2)
+
+        text_size = draw.textbbox((x, y), phrase)
+        text_w, text_h = text_size[2] - text_size[0], text_size[3] - text_size[1]
+        draw.rectangle([x, y - text_h - 5, x + text_w + 10, y], fill="black")
+        draw.text((x + 5, y - text_h - 5), phrase, fill="white")
+
+    image.show()
