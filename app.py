@@ -1,6 +1,6 @@
 from SGGControllerRelTR.RelTRController import sgg_api
 from QueryController.QueryController import rev_api
-from ObjectDescriptionV2Controller.QueryV2Controller import rev_v2_api
+from IRESGCLController.IRESGCLController import rev_v2_api
 from flask import Flask
 from flask_cors import CORS
 
