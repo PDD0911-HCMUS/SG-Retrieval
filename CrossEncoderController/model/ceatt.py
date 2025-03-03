@@ -22,22 +22,22 @@ class CEAtt(nn.Module):
     
     def forward(self, img: NestedTensor, tgt):
 
-        i, i_msk, _ = self.vision_encoder(img)
+        vision, vision_msk, _ = self.vision_encoder(img)
 
-        g, g_msk = self.graph_encoder(tgt)
+        region, region_msk = self.graph_encoder(tgt)
 
         vision, _ = self.attn_vision(
-            query=i,
-            key=g,
-            value=g,
-            key_padding_mask=g_msk  # mask cho graph nếu có
+            query=vision,
+            key=region,
+            value=region,
+            key_padding_mask=region_msk  # mask cho graph
         )
 
         region, _ = self.attn_graph(
-            query=g,
-            key=i,
-            value=i,
-            key_padding_mask=i_msk  # mask cho vision nếu có
+            query=region,
+            key=vision,
+            value=vision,
+            key_padding_mask=vision_msk  # mask cho vision
         )
 
         print(vision.size())

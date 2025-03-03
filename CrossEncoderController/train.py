@@ -54,9 +54,9 @@ if __name__ == "__main__":
     epochs=300
     start_epoch = 0
     
-    vg_image_dir = "/home/duypd/ThisPC-DuyPC/SG-Retrieval/Datasets/VisualGenome/VG_100K/"
-    vg_anno_train = "/home/duypd/ThisPC-DuyPC/SG-Retrieval/Datasets/VisualGenome/anno_rg/train_data.json"
-    vg_anno_val = "/home/duypd/ThisPC-DuyPC/SG-Retrieval/Datasets/VisualGenome/anno_rg/val_data.json"
+    vg_image_dir = "/home/duypd/ThisPC-DuyPC/SG-Retrieval/0_Datasets/VisualGenome/VG_100K/"
+    vg_anno_train = "/home/duypd/ThisPC-DuyPC/SG-Retrieval/0_Datasets/VisualGenome/anno_rg/train_data.json"
+    vg_anno_val = "/home/duypd/ThisPC-DuyPC/SG-Retrieval/0_Datasets/VisualGenome/anno_rg/val_data.json"
 
     dataset_train = build_data(image_set = 'train',
                          annotation_file=vg_anno_train, 

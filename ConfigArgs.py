@@ -1,10 +1,10 @@
-root = 'Datasets/Incidents/anno/'
-anno_train = 'Datasets/VisualGenome/train.json'
-anno_valid = 'Datasets/VisualGenome/val.json'
-img_folder_vg = 'Datasets/VisualGenome/VG_100K/'
-dir_upload = 'Datasets/upload/'
+root = '0_Datasets/Incidents/anno/'
+anno_train = '0_Datasets/VisualGenome/train.json'
+anno_valid = '0_Datasets/VisualGenome/val.json'
+img_folder_vg = '0_Datasets/VisualGenome/VG_100K/'
+dir_upload = '0_Datasets/upload/'
 
-img_folder_mscoco = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/Datasets/MSCOCO/train2017/'
+img_folder_mscoco = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/0_Datasets/MSCOCO/train2017/'
 
 batch_size = 12
 num_workers = 0

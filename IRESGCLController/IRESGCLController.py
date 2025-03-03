@@ -17,14 +17,9 @@ import ConfigArgs as args
 from flask_cors import CORS, cross_origin
 from flask import Blueprint, request, jsonify, send_from_directory
 
-hostname = 'localhost'
-database = 'RetrievalSystemTraffic'
-username = 'postgres'
-password = '123456'
-port_id = 5432
-conn_str = f"dbname='{database}' user='{username}' host='{hostname}' password='{password}' port='{port_id}'"
+conn_str = args.conn_str
 
-rev_v2_api = Blueprint('rev_v2', __name__)
+rev_api = Blueprint('rev', __name__)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def parse_postgres_array(data):
@@ -171,7 +166,7 @@ def faiss_retrieval_controller(trip, model):
 
 def get_model():
 
-    root_ckpt = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/ObjectDescriptionV2Controller/ckpt/'
+    root_ckpt = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/IRESGCLController/ckpt/'
     ckpt = root_ckpt + 'model_epoch_80.pth'
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model, _ = build_model(d_model=256, dropout=0.1, activation="relu", pretrain = 'bert-base-uncased', device = device)
@@ -203,7 +198,7 @@ def get_set():
 
     return image_set, triplet_set
 
-@rev_v2_api.route('/rev', methods = ['POST'])
+@rev_api.route('/rev', methods = ['POST'])
 @cross_origin()
 def find_matcher():
     try:
@@ -233,6 +228,6 @@ def find_matcher():
         )
 
 
-@rev_v2_api.route('/images/<filename>')
+@rev_api.route('/images/<filename>')
 def serve_image(filename):
-    return send_from_directory('Datasets/VisualGenome/VG_100K', filename)
+    return send_from_directory('0_Datasets/VisualGenome/VG_100K', filename)
