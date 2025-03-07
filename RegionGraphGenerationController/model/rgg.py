@@ -9,42 +9,28 @@ from util.misc import (NestedTensor, nested_tensor_from_tensor_list,
 
 from .res_backbone import build_backbone
 from .vision_encoder import build_vision_encoder
-from .region_graph_encoder import build_graph_encoder
 
-class CEAtt(nn.Module):
-    def __init__(self, vision_encoder, graph_encoder, hidden_dim, nhead, dropout):
+class RGG(nn.Module):
+    def __init__(self, vision_encoder, region_decoder, hidden_dim, num_entities, num_regions):
         super().__init__()
         self.vision_encoder = vision_encoder
-        self.graph_encoder = graph_encoder
+        self.region_decoder = region_decoder
 
-        self.attn_vision = nn.MultiheadAttention(hidden_dim, nhead, dropout, batch_first=True)
-        self.attn_graph = nn.MultiheadAttention(hidden_dim, nhead, dropout, batch_first=True)
+        self.num_regions = nn.Embedding(num_regions, hidden_dim)
+        self.num_entities = nn.Embedding(num_entities, hidden_dim)
     
-    def forward(self, img: NestedTensor, tgt):
+    def forward(self, img: NestedTensor):
 
-        vision, vision_msk, _ = self.vision_encoder(img)
+        vision, vision_msk, vision_pos = self.vision_encoder(img)
 
-        region, region_msk = self.graph_encoder(tgt)
-
-        vision, _ = self.attn_vision(
-            query=vision,
-            key=region,
-            value=region,
-            key_padding_mask=region_msk  # mask cho graph
+        reg = self.region_decoder(
+            entity = self.num_entities.weight,
+            region = self.num_regions.weight,
+            memory = vision,
+            memory_key_padding_mask=vision_msk
         )
 
-        region, _ = self.attn_graph(
-            query=region,
-            key=vision,
-            value=vision,
-            key_padding_mask=vision_msk  # mask cho vision
-        )
-
-        print(vision.size())
-        print(region.size())
-        print(vision[:, 0].size(),region[:,0].size())
-
-        return vision[:, 0],region[:,0]
+        return vision
     
 class Criterion(nn.Module):
     def __init__(self, temperature=0.07):
@@ -67,12 +53,11 @@ class Criterion(nn.Module):
         return loss
 
 def build_model(hidden_dim,lr_backbone,masks, backbone, dilation, 
-                nhead, nlayer, d_ffn, dropout, activation, pre_train):
+                nhead, nlayer, d_ffn, dropout, activation, num_entities, num_regions):
 
     vision_backbone = build_backbone(hidden_dim,lr_backbone,masks, backbone, dilation)
     vision_encoder = build_vision_encoder(vision_backbone, hidden_dim, nhead, nlayer, d_ffn, dropout, activation)
-    graph_encoder = build_graph_encoder(hidden_dim, nhead, nlayer, d_ffn, dropout, activation, pre_train)
     
-    model = CEAtt(vision_encoder, graph_encoder, hidden_dim, nhead, dropout)
+    model = RGG(vision_encoder, hidden_dim, num_entities, num_regions)
 
     return model

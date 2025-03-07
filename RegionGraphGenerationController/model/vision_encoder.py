@@ -14,8 +14,6 @@ class VisionEncoder(nn.Module):
         super().__init__()
         self.backbone = backbone
         self.input_proj = nn.Conv2d(backbone.num_channels, hidden_dim, kernel_size=1)
-        self.image_cls = nn.Parameter(torch.zeros(1, hidden_dim)) #[CLS] Token. It will be learned through the training progress
-        torch.nn.init.xavier_uniform_(self.image_cls)
 
         self.encoder_layer = TransformerEncoderLayer(hidden_dim, nhead, d_ffn, dropout, activation)
         self.layers = _get_clones(self.encoder_layer, nlayer)
@@ -35,13 +33,6 @@ class VisionEncoder(nn.Module):
         output = self.input_proj(src).flatten(start_dim=2).transpose(1,2)
         mask = mask.flatten(start_dim=1)
         pos = pos[-1].flatten(start_dim=2).transpose(1,2)
-
-        image_cls = self.image_cls.unsqueeze(0).repeat(output.shape[0], 1, 1)
-        image_mask = torch.zeros([output.shape[0], 1], dtype=torch.bool, device=output.device)
-
-        output = torch.cat([image_cls, output], dim=1)
-        pos = torch.cat([torch.zeros([output.shape[0], 1, self.hidden_dim], device=output.device), pos], dim=1)
-        mask = torch.cat([image_mask, mask], dim=1)
 
         for layer in self.layers:
             output = layer(output, src_key_padding_mask=mask, pos=pos)
@@ -69,7 +60,11 @@ class TransformerEncoderLayer(nn.Module):
     def with_pos_embed(self, tensor, pos: Optional[Tensor]):
         return tensor if pos is None else tensor + pos
 
-    def forward(self, src, src_key_padding_mask: Optional[Tensor] = None, pos: Optional[Tensor] = None):
+    def forward(self, 
+                src, 
+                src_key_padding_mask: Optional[Tensor] = None, 
+                pos: Optional[Tensor] = None):
+        
         q = k = self.with_pos_embed(src, pos)
         src2 = self.self_attn(q, k, value=src, key_padding_mask=src_key_padding_mask)[0]
         src = src + self.dropout1(src2)

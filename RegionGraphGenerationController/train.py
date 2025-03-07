@@ -7,7 +7,7 @@ from util.misc import (NestedTensor, nested_tensor_from_tensor_list,
                        is_dist_avail_and_initialized)
 import torch
 
-from model.ceatt import build_model
+from model.rgg import build_model
 
 def train_engine(model: torch.nn.Module, criterion: torch.nn.Module,
                     data_loader: Iterable, optimizer: torch.optim.Optimizer,
@@ -16,10 +16,10 @@ def train_engine(model: torch.nn.Module, criterion: torch.nn.Module,
 
     for im, tgt in data_loader:
         im = im.to(device)
-        tgt = [{k: v.to(device) for k, v in t.items()} for t in tgt]
-
-        i,g = model(im, tgt)
-        # print(src.size())
+        # tgt = [{k: v.to(device) for k, v in t.items()} for t in tgt]
+        print(tgt)
+        i = model(im)
+        print(i.size())
 
         break
     pass
@@ -46,6 +46,9 @@ if __name__ == "__main__":
     activation="relu"
 
     pre_train = 'bert-base-uncased'
+
+    num_regions = 50
+    num_entities = 50
 
     lr_drop=200
     lr=0.0001
@@ -85,7 +88,7 @@ if __name__ == "__main__":
     
 
     model = build_model(hidden_dim,lr_backbone,masks, backbone, dilation, 
-                nhead, nlayer, d_ffn, dropout, activation, pre_train)
+                nhead, nlayer, d_ffn, dropout, activation, num_entities, num_regions)
     
     criterion = None
 
@@ -107,3 +110,5 @@ if __name__ == "__main__":
     for epoch in range(start_epoch, epochs):
         train_engine(model, criterion, data_train, optimizer, device, epoch)
         break
+
+

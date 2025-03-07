@@ -64,11 +64,11 @@ class PrepareImageTarget(object):
         bbox_rg = bbox_rg[keep]
         phrases = [phrases[i] for i in keep.nonzero(as_tuple=True)[0].tolist()]
 
-        # Arrange bounding boxes by area from largest to smallest
-        areas = (bbox_rg[:, 2] - bbox_rg[:, 0]) * (bbox_rg[:, 3] - bbox_rg[:, 1])
-        sorted_indices = torch.argsort(areas, descending=True)
-        bbox_rg = bbox_rg[sorted_indices]
-        phrases = [phrases[i] for i in sorted_indices.tolist()]
+        # Arrange bounding boxes by area from largest to smallest (Sort)
+        # areas = (bbox_rg[:, 2] - bbox_rg[:, 0]) * (bbox_rg[:, 3] - bbox_rg[:, 1])
+        # sorted_indices = torch.argsort(areas, descending=True)
+        # bbox_rg = bbox_rg[sorted_indices]
+        # phrases = [phrases[i] for i in sorted_indices.tolist()]
 
         bbox_rg = bbox_rg[:self.max_boxes]
         phrases = phrases[:self.max_boxes]
@@ -79,19 +79,19 @@ class PrepareImageTarget(object):
         phrase_ids = phrase_tok['input_ids']
         phrase_msk = phrase_tok['attention_mask']
 
-        num_boxes = bbox_rg.shape[0]
-        if num_boxes < self.max_boxes:
-            pad_size = self.max_boxes - num_boxes
+        # num_boxes = bbox_rg.shape[0]
+        # if num_boxes < self.max_boxes:
+        #     pad_size = self.max_boxes - num_boxes
             
-            # Padding boxes with 0
-            pad_boxes = torch.zeros((pad_size, 4), dtype=torch.float32)
-            bbox_rg = torch.cat([bbox_rg, pad_boxes], dim=0)
+        #     # Padding boxes with 0
+        #     pad_boxes = torch.zeros((pad_size, 4), dtype=torch.float32)
+        #     bbox_rg = torch.cat([bbox_rg, pad_boxes], dim=0)
 
-            # Padding phrases with [PAD]
-            pad_ids = torch.full((pad_size, phrase_ids.shape[1]), self.tokenizer.pad_token_id, dtype=torch.long)
-            pad_mask = torch.zeros((pad_size, phrase_msk.shape[1]), dtype=torch.long)
-            phrase_ids = torch.cat([phrase_ids, pad_ids], dim=0)
-            phrase_msk = torch.cat([phrase_msk, pad_mask], dim=0)
+        #     # Padding phrases with [PAD]
+        #     pad_ids = torch.full((pad_size, phrase_ids.shape[1]), self.tokenizer.pad_token_id, dtype=torch.long)
+        #     pad_mask = torch.zeros((pad_size, phrase_msk.shape[1]), dtype=torch.long)
+        #     phrase_ids = torch.cat([phrase_ids, pad_ids], dim=0)
+        #     phrase_msk = torch.cat([phrase_msk, pad_mask], dim=0)
 
         target = {}
         target['image_id'] = bbox_rg
@@ -100,6 +100,7 @@ class PrepareImageTarget(object):
         target['phrase_msk'] = phrase_msk
         target["orig_size"] = torch.as_tensor([int(h), int(w)])
         target["size"] = torch.as_tensor([int(h), int(w)])
+        # target["phrases"] = phrases
 
         return img, target
 
