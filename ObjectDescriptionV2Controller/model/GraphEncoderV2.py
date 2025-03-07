@@ -46,7 +46,7 @@ class GraphEncoder(nn.Module):
                     torch.nn.Linear(4*d_model, 512),
                     torch.nn.ReLU(),
                     torch.nn.Linear(512, 256)
-)
+        )
         
         self._reset_parameters()
         self.d_model = d_model

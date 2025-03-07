@@ -9,7 +9,7 @@ from typing import Iterable
 from rich.console import Console
 from rich.table import Table
 from rich.progress import Progress
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 def train_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
                     data_loader: Iterable, optimizer: torch.optim.Optimizer,
                     device: torch.device):
@@ -68,8 +68,8 @@ def validate_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
 
 def main():
     root_data = '/radish/phamd/duypd-proj/SG-Retrieval/Datasets/VisualGenome/'
-    root_pth = '/radish/phamd/duypd-proj/SG-Retrieval/ObjectDescriptionV2Controller/ckpt_3'
-    ann_file = root_data + 'Rev_v2.json'
+    root_pth = '/radish/phamd/duypd-proj/SG-Retrieval/ObjectDescriptionV2Controller/ckpt_mscoco'
+    ann_file = root_data + 'Rev_v2_mscoco.json'
     num_epochs = 100
     lr = 1e-4
     weight_decay = 1e-4
@@ -120,7 +120,7 @@ def main():
         table.add_row(str(epoch + 1), f"{train_loss:.4f}", f"{val_loss:.4f}" if val_loss is not None else "N/A")
 
         if (epoch + 1) % 2 == 0:
-            checkpoint_path = f"{root_pth}/model_epoch_{epoch + 1}.pth"
+            checkpoint_path = f"{root_pth}/model_MSCOCO_epoch_{epoch + 1}.pth"
             torch.save(model.state_dict(), checkpoint_path)
             print(f"Model saved to {checkpoint_path}")
 

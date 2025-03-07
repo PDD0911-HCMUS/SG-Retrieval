@@ -74,7 +74,7 @@ def build_model(d_model = 256,
                 device = 'cpu'
             ):
 
-    weight_dict = {'loss_cont': 1}
+    weight_dict = {'loss_cont': 1} 
     losses = ['contrastive']
 
     model = G2G(d_model, dropout, activation, pretrain)
