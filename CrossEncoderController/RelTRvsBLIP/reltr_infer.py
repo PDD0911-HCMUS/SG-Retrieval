@@ -2,11 +2,28 @@ import torch
 import torchvision.transforms as T
 from PIL import Image
 import matplotlib.pyplot as plt
-from .models.backbone import Backbone, Joiner
-from .models.position_encoding import PositionEmbeddingSine
-from .models.transformer import Transformer
-from .models.reltr import RelTR
+from models.backbone import Backbone, Joiner
+from models.position_encoding import PositionEmbeddingSine
+from models.transformer import Transformer
+from models.reltr import RelTR
+import os
+import sys
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(current_dir, '..', '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 import ConfigArgs as args
+from florence_2 import utils
+from transformers.dynamic_module_utils import get_imports
+from unittest.mock import patch
+from transformers import AutoProcessor, AutoModelForCausalLM  
+
+def fixed_get_imports(filename: str | os.PathLike) -> list[str]:
+    if not str(filename).endswith("modeling_florence2.py"):
+        return get_imports(filename)
+    imports = get_imports(filename)
+    imports.remove("flash_attn")
+    return imports
 
 CLASSES = args.CLASSES
 REL_CLASSES = args.REL_CLASSES
@@ -16,7 +33,7 @@ transform = T.Compose([
     T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 ])
 
-def create_model():
+def create_model_reltr():
     position_embedding = PositionEmbeddingSine(128, normalize=True)
     backbone = Backbone('resnet50', False, False, False)
     backbone = Joiner(backbone, position_embedding)
@@ -39,6 +56,14 @@ def create_model():
 
     return model
 
+def create_model_ms_floranceV2():
+    model_id = 'microsoft/Florence-2-large'
+    with patch("transformers.dynamic_module_utils.get_imports", fixed_get_imports): #workaround for unnecessary flash_attn requirement
+        model = AutoModelForCausalLM.from_pretrained(model_id, attn_implementation="sdpa", trust_remote_code=True)
+        processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True)
+
+    return model, processor
+
 # for output bounding box post-processing
 def box_cxcywh_to_xyxy(x):
     x_c, y_c, w, h = x.unbind(1)
@@ -56,7 +81,9 @@ def do_infer(image_path):
     im = Image.open(image_path)
     img = transform(im).unsqueeze(0)
     # propagate through the model
-    model = create_model()
+    model = create_model_reltr()
+    model_ms, processor = create_model_ms_floranceV2()
+    utils.set_model_info(model_ms, processor)
     outputs = model(img)
     # keep only predictions with >0.3 confidence
     probas = outputs['rel_logits'].softmax(-1)[0, :, :-1]
@@ -99,4 +126,30 @@ def do_infer(image_path):
         conv_features = conv_features[0]
         dec_attn_weights_sub = dec_attn_weights_sub[0]
         dec_attn_weights_obj = dec_attn_weights_obj[0]
-    pass
+    
+    task_prompt = utils.TaskType.CAPTION
+    
+
+    for i, (idx, (sxmin, symin, sxmax, symax), (oxmin, oymin, oxmax, oymax)) in \
+                enumerate(zip(keep_queries, sub_bboxes_scaled[indices], obj_bboxes_scaled[indices])):
+        
+        box_s = (sxmin, symin, sxmax, symax)
+        box_s = tuple(map(int, box_s))
+
+        box_o = (oxmin, oymin, oxmax, oymax)
+        box_o = tuple(map(int, box_o))
+
+        cropped_image_s = im.crop(box_s)
+        cropped_image_o = im.crop(box_o)
+
+        # cropped_image_s.show()
+        # cropped_image_o.show()
+
+        results_s = utils.run_example(task_prompt, cropped_image_s)
+        results_o = utils.run_example(task_prompt, cropped_image_o)
+        print(results_s['<CAPTION>'], ' - ', results_o['<CAPTION>'])
+
+
+if __name__ == "__main__":
+    img_path = args.img_folder_vg + '1.jpg'
+    do_infer(image_path=img_path)
