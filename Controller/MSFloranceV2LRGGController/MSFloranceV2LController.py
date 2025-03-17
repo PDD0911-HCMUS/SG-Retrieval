@@ -2,7 +2,7 @@ import torch
 import torchvision.transforms as T
 from PIL import Image
 import matplotlib.pyplot as plt
-import ConfigArgs as args
+import config as args
 from pathlib import Path
 import networkx as nx
 import json

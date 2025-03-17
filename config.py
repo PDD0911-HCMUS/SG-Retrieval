@@ -1,13 +1,40 @@
 from flask_sqlalchemy import SQLAlchemy
+import os
+
+pwd = os.getcwd()
 db = SQLAlchemy()
 
-root = '0_Datasets/Incidents/anno/'
-anno_train = '0_Datasets/VisualGenome/train.json'
-anno_valid = '0_Datasets/VisualGenome/val.json'
-img_folder_vg = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/0_Datasets/VisualGenome/VG_100K/'
-dir_upload = '0_Datasets/upload/'
+class ConfigApp:
+    domain = "localhost"
+    port = 8009
+    CORS_HEADER = 'Content-Type'
+    
 
-img_folder_mscoco = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/0_Datasets/MSCOCO/train2017/'
+class ConfigDB:
+    HOSTNAME = "localhost"
+    DATABASE = "RetrievalSystemTraffic"
+    USERNAME = "postgres"
+    PASSWORD = "123456"
+    PORT = 5432
+    SQLALCHEMY_DATABASE_URI = f"postgresql://{USERNAME}:{PASSWORD}@{HOSTNAME}:{PORT}/{DATABASE}"
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+
+class ConfigData:
+    root = os.path.join(pwd,'Datasets')
+    
+    img_folder_vg = os.path.join(root,'VisualGenome/VG_100K/')
+    dir_upload =  os.path.join(root,'upload/')
+
+    img_folder_mscoco_train = os.path.join(root,'MSCOCO/train2017/')
+    img_folder_mscoco_valid = os.path.join(root,'MSCOCO/val2017/')
+
+    anno_train = '0_Datasets/VisualGenome/train.json'
+    anno_valid = '0_Datasets/VisualGenome/val.json'
+
+class Checkpoint:
+    root = os.path.join(pwd,'Checkpoint')
+    ckpt_IRESGCL = os.path.join(root,'IRESGCL', 'model_epoch_80.pth')
+    ckpt_sgg = os.path.join(root,'RelTR','checkpoint0149reltr.pth')
 
 batch_size = 12
 num_workers = 0
@@ -15,25 +42,6 @@ num_epochs = 200
 max_length = 128
 device = 'cuda:2'
 seed = 42
-
-# connection information
-hostname = 'localhost'
-database = 'RetrievalSystemTraffic'
-username = 'postgres'
-password = '123456'
-port_id = 5432
-conn_str = f"dbname='{database}' user='{username}' host='{hostname}' password='{password}' port='{port_id}'"
-
-class Config:
-    HOSTNAME = "localhost"
-    DATABASE = "RetrievalSystemTraffic"
-    USERNAME = "postgres"
-    PASSWORD = "123456"
-    PORT = 5432
-
-    SQLALCHEMY_DATABASE_URI = f"postgresql://{USERNAME}:{PASSWORD}@{HOSTNAME}:{PORT}/{DATABASE}"
-    SQLALCHEMY_TRACK_MODIFICATIONS = False
-    CORS_HEADERS = "Content-Type"
 
 CLASSES = [ 'N/A', 'airplane', 'animal', 'arm', 'bag', 'banana', 'basket', 'beach', 'bear', 'bed', 'bench', 'bike',
                 'bird', 'board', 'boat', 'book', 'boot', 'bottle', 'bowl', 'box', 'boy', 'branch', 'building',
@@ -61,6 +69,3 @@ prefix_name = 'object+'
 prefix_graph = 'graph+'
 prefix_triplet = 'triplet+'
 
-ckpt_rev = 'ckpt/cross_modal_model_with_attention_epoch__30.pth'
-ckpt_sgg = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/ckpt/checkpoint0149reltr.pth'
-ckpt_blip = 'https://storage.googleapis.com/sfr-vision-language-research/BLIP/models/model*_base_caption.pth'

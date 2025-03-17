@@ -4,8 +4,8 @@
 import torch
 import torch.nn.functional as F
 from torch import nn
-from RelTRSGGController.util import box_ops
-from RelTRSGGController.util.misc import (NestedTensor, nested_tensor_from_tensor_list,
+from Controller.RelTRSGGController.util import box_ops
+from Controller.RelTRSGGController.util.misc import (NestedTensor, nested_tensor_from_tensor_list,
                        accuracy, get_world_size, interpolate,
                        is_dist_avail_and_initialized)
 from .backbone import build_backbone

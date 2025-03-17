@@ -1,6 +1,6 @@
 import json
 import psycopg2
-import ConfigArgs as args
+import config as args
 from flask_cors import CORS, cross_origin
 from flask import Blueprint, request, jsonify, send_from_directory
 import torch

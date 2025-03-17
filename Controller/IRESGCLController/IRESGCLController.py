@@ -13,14 +13,12 @@ import matplotlib.image as mpimg
 from sentence_transformers import SentenceTransformer
 import json
 import psycopg2
-import ConfigArgs as args
-from ConfigArgs import db
+import config as args
+from config import db
 from flask_cors import CORS, cross_origin
 from flask import Blueprint, request, jsonify, send_from_directory
 import Entities.entities as entity
 from sqlalchemy.exc import SQLAlchemyError
-
-conn_str = args.conn_str
 
 rev_api = Blueprint('rev', __name__)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -92,18 +90,21 @@ def get_input_embedding(input, model: torch.nn.Module):
 def make_dataset_posgres_insert(out_que, out_rev, que_im, rev_im):
     # connect to DB
     try:
-        conn = psycopg2.connect(conn_str)
-        cursor = conn.cursor()
-        sql = """INSERT INTO "GraphRetrieval_V2" ("image_name_qu","que_embeding","image_name_rev","rev_embeding") VALUES(%s,%s,%s,%s);"""
+        GraphRetrieval_V2 = entity.GraphRetrievalV2
         for o_q, o_r, q_i, r_i in zip(out_que, out_rev, que_im, rev_im):
-            # print(q_i, o_q.size(), r_i, o_r.size())
-            cursor.execute(sql,(q_i,o_q.tolist(),r_i, o_r.tolist()) )
-            conn.commit()
+            insert = GraphRetrieval_V2(
+                image_name_qu=q_i,
+                que_embeding=o_q.tolist(),
+                image_name_rev=r_i,
+                rev_embeding=o_r.tolist()
+            )
+            db.session.add(insert)
+        db.session.commit()
     except Exception as e:
         print(str(e))
+        db.session.rollback()
     finally:
-        if conn is not None:
-            conn.close()
+        db.session.close()
 
 def make_dataset_posgres(model: torch.nn.Module, device: torch.device):
 
@@ -131,46 +132,53 @@ def make_dataset_posgres(model: torch.nn.Module, device: torch.device):
                 progress.update(task, advance=1, description=f"[cyan]Batch {batch_idx+1}/{len(dataloader)}")
 
 def get_set_query():
-    conn = psycopg2.connect(conn_str)
-    cursor = conn.cursor()
-    sql = """SELECT image_name_qu, image_name_rev, que_embeding, rev_embeding FROM "GraphRetrieval_V2";"""
-    cursor.execute(sql)
-    records = cursor.fetchall()
+    try:
+        GraphRetrieval_V2 = entity.GraphRetrievalV2
 
-    file_image_q = []
-    file_image_r = []
-    que_embeding = []
-    rev_embeding = []
-    for record in records[:]:
-        file_image_q.append(record[0])
-        file_image_r.append(record[1])
-        que_embeding.append(record[2])
-        rev_embeding.append(record[3])
+        records = db.session.query(
+            GraphRetrieval_V2.image_name_qu,
+            GraphRetrieval_V2.image_name_rev,
+            GraphRetrieval_V2.que_embeding,
+            GraphRetrieval_V2.rev_embeding
+        ).all()
 
-    images = file_image_q + file_image_r
-    set_embedding = que_embeding + rev_embeding
-    set_embedding = np.array(set_embedding)
-    images, unique_indices = np.unique(images, return_index=True)
-    set_embedding = set_embedding[unique_indices]
-    return images, set_embedding
+        file_image_q = []
+        file_image_r = []
+        que_embeding = []
+        rev_embeding = []
+        for record in records[:]:
+            file_image_q.append(record[0])
+            file_image_r.append(record[1])
+            que_embeding.append(record[2])
+            rev_embeding.append(record[3])
+
+        images = file_image_q + file_image_r
+        set_embedding = que_embeding + rev_embeding
+        set_embedding = np.array(set_embedding)
+        images, unique_indices = np.unique(images, return_index=True)
+        set_embedding = set_embedding[unique_indices]
+
+        return images, set_embedding
+
+    except Exception as e:
+        print(e)
+        db.session.rollback()
+
+    finally:
+        db.session.close()
 
 def faiss_retrieval_controller(trip, model):
     images, set_embedding = get_set_query()
-
-    
     input_embedding = get_input_embedding(trip, model)
     input_embedding = input_embedding.numpy().astype('float32')
     index = faiss.IndexFlatIP(set_embedding.shape[1])  # Dùng Euclidean distance
     index.add(set_embedding)
     D, I = index.search(input_embedding, k=50)
-    print("Indices:", I[0])
     selected_images = [images[i] for i in I[0]]
     return selected_images, D
 
 def get_model():
-
-    root_ckpt = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/IRESGCLController/ckpt/'
-    ckpt = root_ckpt + 'model_epoch_80.pth'
+    ckpt = args.Checkpoint.ckpt_IRESGCL
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model, _ = build_model(d_model=256, dropout=0.1, activation="relu", pretrain = 'bert-base-uncased', device = device)
     model.load_state_dict(torch.load(ckpt, map_location=device))
@@ -210,7 +218,6 @@ def find_matcher():
         top_k = 50
 
         selected_images, dist = faiss_retrieval_controller(text_triplets, model)
-        print(dist)
 
         res = {
             "imgs": selected_images,
@@ -232,4 +239,4 @@ def find_matcher():
 
 @rev_api.route('/images/<filename>')
 def serve_image(filename):
-    return send_from_directory('0_Datasets/VisualGenome/VG_100K', filename)
+    return send_from_directory(args.ConfigData.img_folder_vg, filename)

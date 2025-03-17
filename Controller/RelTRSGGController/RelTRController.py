@@ -6,7 +6,7 @@ from .models.backbone import Backbone, Joiner
 from .models.position_encoding import PositionEmbeddingSine
 from .models.transformer import Transformer
 from .models.reltr import RelTR
-import ConfigArgs as args
+import config as args
 from pathlib import Path
 import networkx as nx
 import json
@@ -15,18 +15,9 @@ from flask import Blueprint, request, jsonify, send_from_directory
 import os
 from flask_cors import CORS, cross_origin
 import psycopg2
-import Entities.entities as entity
-
 
 sgg_api = Blueprint('sgg', __name__)
 
-@sgg_api.route("/users", methods=["GET"])
-def get_users():
-    user = entity.User
-    fullname = user.full_name
-    return 
-CLASSES = args.CLASSES
-REL_CLASSES = args.REL_CLASSES
 transform = T.Compose([
     T.Resize(512),
     T.ToTensor(),
@@ -50,7 +41,7 @@ def create_model():
                 num_entities=100, num_triplets=200)
 
     # The checkpoint is pretrained on Visual Genome
-    ckpt = torch.load(args.ckpt_sgg, map_location='cpu')
+    ckpt = torch.load(args.Checkpoint.ckpt_sgg, map_location='cpu')
     model.load_state_dict(ckpt['model'])
     model.eval()
 
@@ -158,7 +149,7 @@ def draw_detail_triplet(im, indices,
                                     fill=False, color='orange', linewidth=2.5))
 
         ax_i.axis('off')
-        ax_i.set_title(CLASSES[probas_sub[idx].argmax()]+' '+REL_CLASSES[probas[idx].argmax()]+' '+CLASSES[probas_obj[idx].argmax()], fontsize=10)
+        ax_i.set_title(args.CLASSES[probas_sub[idx].argmax()]+' '+args.REL_CLASSES[probas[idx].argmax()]+' '+args.CLASSES[probas_obj[idx].argmax()], fontsize=10)
     
     fig.savefig(out_triplet, pad_inches=0)
     plt.close(fig)
@@ -218,10 +209,10 @@ def extract_triplet(mode):
                 sList, oList, rList, t = [], [], [], []
                 
                 for idx in keep_queries:
-                    sList.append(CLASSES[probas_sub[idx].argmax()])
-                    oList.append(CLASSES[probas_obj[idx].argmax()])
-                    rList.append(REL_CLASSES[probas[idx].argmax()])
-                    txt = CLASSES[probas_sub[idx].argmax()] + ' ' + REL_CLASSES[probas[idx].argmax()] + ' ' + CLASSES[probas_obj[idx].argmax()]
+                    sList.append(args.CLASSES[probas_sub[idx].argmax()])
+                    oList.append(args.CLASSES[probas_obj[idx].argmax()])
+                    rList.append(args.REL_CLASSES[probas[idx].argmax()])
+                    txt = args.CLASSES[probas_sub[idx].argmax()] + ' ' + args.REL_CLASSES[probas[idx].argmax()] + ' ' + args.CLASSES[probas_obj[idx].argmax()]
                     t.append(txt)
                 
                 data_json = {
@@ -257,11 +248,11 @@ def sgg_controller():
                 Msg = 'No selected file'
             )
         if file:
-            filepath = os.path.join(args.dir_upload, file.filename)
+            filepath = os.path.join(args.ConfigData.dir_upload, file.filename)
             file.save(filepath)
 
         fileName = file.filename
-        file_name = args.dir_upload + fileName
+        file_name = args.ConfigData.dir_upload + fileName
         path = Path(file_name.replace('.jpg', ''))
         if not path.exists():
             path.mkdir(parents=True, exist_ok=True)
@@ -316,15 +307,15 @@ def sgg_controller():
             sList, oList, rList, t, t_obj = [], [], [], [], []
             
             for idx in keep_queries:
-                sList.append(CLASSES[probas_sub[idx].argmax()])
-                oList.append(CLASSES[probas_obj[idx].argmax()])
-                rList.append(REL_CLASSES[probas[idx].argmax()])
-                txt = CLASSES[probas_sub[idx].argmax()] + ' ' + REL_CLASSES[probas[idx].argmax()] + ' ' + CLASSES[probas_obj[idx].argmax()]
+                sList.append(args.CLASSES[probas_sub[idx].argmax()])
+                oList.append(args.CLASSES[probas_obj[idx].argmax()])
+                rList.append(args.REL_CLASSES[probas[idx].argmax()])
+                txt = args.CLASSES[probas_sub[idx].argmax()] + ' ' + args.REL_CLASSES[probas[idx].argmax()] + ' ' + args.CLASSES[probas_obj[idx].argmax()]
 
                 t_json = {
-                    "subject": CLASSES[probas_sub[idx].argmax()],
-                    "relation": REL_CLASSES[probas[idx].argmax()],
-                    "object": CLASSES[probas_obj[idx].argmax()]
+                    "subject": args.CLASSES[probas_sub[idx].argmax()],
+                    "relation": args.REL_CLASSES[probas[idx].argmax()],
+                    "object": args.CLASSES[probas_obj[idx].argmax()]
                 }
                 t.append(txt)
                 t_obj.append(t_json)
@@ -405,7 +396,7 @@ def insert_sgg():
                 dec_attn_weights_obj = dec_attn_weights_obj[0]
                 t = []
                 for idx in keep_queries:
-                    txt = CLASSES[probas_sub[idx].argmax()] + ' ' + REL_CLASSES[probas[idx].argmax()] + ' ' + CLASSES[probas_obj[idx].argmax()]
+                    txt = args.CLASSES[probas_sub[idx].argmax()] + ' ' + args.REL_CLASSES[probas[idx].argmax()] + ' ' + args.CLASSES[probas_obj[idx].argmax()]
                     t.append(txt)
 
                 if(len(t) >= 7):
@@ -461,7 +452,7 @@ def insert_sgg_mscoco():
                 dec_attn_weights_obj = dec_attn_weights_obj[0]
                 t = []
                 for idx in keep_queries:
-                    txt = CLASSES[probas_sub[idx].argmax()] + ' ' + REL_CLASSES[probas[idx].argmax()] + ' ' + CLASSES[probas_obj[idx].argmax()]
+                    txt = args.CLASSES[probas_sub[idx].argmax()] + ' ' + args.REL_CLASSES[probas[idx].argmax()] + ' ' + args.CLASSES[probas_obj[idx].argmax()]
                     t.append(txt)
 
                 if(len(t) >= 7):
@@ -474,11 +465,11 @@ def insert_sgg_mscoco():
 @sgg_api.route('/res-sgg/<filename>')
 def upload_image(filename):
     if('object+' in filename):
-        return send_from_directory(args.dir_upload + filename.replace('.jpg', '').replace('object+', ''), filename)
+        return send_from_directory(args.ConfigData.dir_upload + filename.replace('.jpg', '').replace('object+', ''), filename)
     if('graph+' in filename):
-        return send_from_directory(args.dir_upload + filename.replace('.jpg', '').replace('graph+', ''), filename)
+        return send_from_directory(args.ConfigData.dir_upload + filename.replace('.jpg', '').replace('graph+', ''), filename)
     if('triplet+' in filename):
-        return send_from_directory(args.dir_upload + filename.replace('.jpg', '').replace('triplet+', ''), filename)
+        return send_from_directory(args.ConfigData.dir_upload + filename.replace('.jpg', '').replace('triplet+', ''), filename)
     
-if __name__ == "__main__":
-    insert_sgg_mscoco()
+# if __name__ == "__main__":
+#     insert_sgg_mscoco()

@@ -6,7 +6,7 @@ import math
 import torch
 from torch import nn
 
-from RelTRSGGController.util.misc import NestedTensor
+from Controller.RelTRSGGController.util.misc import NestedTensor
 
 
 class PositionEmbeddingSine(nn.Module):
