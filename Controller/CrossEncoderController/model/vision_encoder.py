@@ -1,12 +1,11 @@
+from Controller.CrossEncoderController.util.misc import (NestedTensor, nested_tensor_from_tensor_list)
+
 from .res_backbone import build_backbone
 import torch
 import torch
 import torch.nn.functional as F
 from torch import nn, Tensor
 from typing import Optional
-from util.misc import (NestedTensor, nested_tensor_from_tensor_list,
-                       accuracy, get_world_size, interpolate,
-                       is_dist_avail_and_initialized)
 import copy
 
 class VisionEncoder(nn.Module):

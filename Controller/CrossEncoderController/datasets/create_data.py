@@ -1,10 +1,10 @@
+import Controller.CrossEncoderController.datasets.transform as T
 import json
 from torch.utils.data import Dataset
 import torch
 import gc
 import os
 from PIL import Image
-import datasets.transform as T
 from transformers import AutoTokenizer
 
 class CreateData(Dataset):

@@ -1,13 +1,14 @@
-from datasets.create_data import build_data
-from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, BatchSampler
-import util.misc as utils
-from typing import Iterable
-from util.misc import (NestedTensor, nested_tensor_from_tensor_list,
+from Controller.CrossEncoderController.datasets.create_data import build_data
+from Controller.CrossEncoderController.model.ceatt import build_model
+from Controller.CrossEncoderController.util.misc import (NestedTensor, nested_tensor_from_tensor_list,
                        accuracy, get_world_size, interpolate,
                        is_dist_avail_and_initialized)
-import torch
 
-from model.ceatt import build_model
+from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, BatchSampler
+import Controller.CrossEncoderController.util.misc as utils
+from typing import Iterable
+import torch
+import config as args
 
 def train_engine(model: torch.nn.Module, criterion: torch.nn.Module,
                     data_loader: Iterable, optimizer: torch.optim.Optimizer,
@@ -54,9 +55,9 @@ if __name__ == "__main__":
     epochs=300
     start_epoch = 0
     
-    vg_image_dir = "/home/duypd/ThisPC-DuyPC/SG-Retrieval/0_Datasets/VisualGenome/VG_100K/"
-    vg_anno_train = "/home/duypd/ThisPC-DuyPC/SG-Retrieval/0_Datasets/VisualGenome/anno_rg/train_data.json"
-    vg_anno_val = "/home/duypd/ThisPC-DuyPC/SG-Retrieval/0_Datasets/VisualGenome/anno_rg/val_data.json"
+    vg_image_dir = args.ConfigData.img_folder_vg
+    vg_anno_train = args.ConfigData.cross_encoder_train
+    vg_anno_val = args.ConfigData.cross_encoder_valid
 
     dataset_train = build_data(image_set = 'train',
                          annotation_file=vg_anno_train, 

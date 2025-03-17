@@ -2,13 +2,10 @@
 """
 Various positional encodings for the transformer.
 """
+from Controller.CrossEncoderController.util.misc import NestedTensor
 import math
 import torch
 from torch import nn
-
-from util.misc import NestedTensor
-
-
 class PositionEmbeddingSine(nn.Module):
     """
     This is a more standard version of the position embedding, very similar to the one

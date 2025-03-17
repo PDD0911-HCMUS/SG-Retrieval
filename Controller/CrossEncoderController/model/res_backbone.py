@@ -2,20 +2,15 @@
 """
 Backbone modules.
 """
+from Controller.CrossEncoderController.util.misc import NestedTensor, is_main_process
 from collections import OrderedDict
-
 import torch
 import torch.nn.functional as F
 import torchvision
 from torch import nn
 from torchvision.models._utils import IntermediateLayerGetter
 from typing import Dict, List
-
-from util.misc import NestedTensor, is_main_process
-
 from .position_encoding import build_position_encoding
-
-
 class FrozenBatchNorm2d(torch.nn.Module):
     """
     BatchNorm2d where the batch statistics and the affine parameters are fixed.
