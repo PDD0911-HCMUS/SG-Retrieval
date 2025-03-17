@@ -1,7 +1,10 @@
+from flask_sqlalchemy import SQLAlchemy
+db = SQLAlchemy()
+
 root = '0_Datasets/Incidents/anno/'
 anno_train = '0_Datasets/VisualGenome/train.json'
 anno_valid = '0_Datasets/VisualGenome/val.json'
-img_folder_vg = '0_Datasets/VisualGenome/VG_100K/'
+img_folder_vg = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/0_Datasets/VisualGenome/VG_100K/'
 dir_upload = '0_Datasets/upload/'
 
 img_folder_mscoco = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/0_Datasets/MSCOCO/train2017/'
@@ -20,6 +23,17 @@ username = 'postgres'
 password = '123456'
 port_id = 5432
 conn_str = f"dbname='{database}' user='{username}' host='{hostname}' password='{password}' port='{port_id}'"
+
+class Config:
+    HOSTNAME = "localhost"
+    DATABASE = "RetrievalSystemTraffic"
+    USERNAME = "postgres"
+    PASSWORD = "123456"
+    PORT = 5432
+
+    SQLALCHEMY_DATABASE_URI = f"postgresql://{USERNAME}:{PASSWORD}@{HOSTNAME}:{PORT}/{DATABASE}"
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    CORS_HEADERS = "Content-Type"
 
 CLASSES = [ 'N/A', 'airplane', 'animal', 'arm', 'bag', 'banana', 'basket', 'beach', 'bear', 'bed', 'bench', 'bike',
                 'bird', 'board', 'boat', 'book', 'boot', 'bottle', 'bowl', 'box', 'boy', 'branch', 'building',
@@ -48,4 +62,5 @@ prefix_graph = 'graph+'
 prefix_triplet = 'triplet+'
 
 ckpt_rev = 'ckpt/cross_modal_model_with_attention_epoch__30.pth'
-ckpt_sgg = 'ckpt/checkpoint0149reltr.pth'
+ckpt_sgg = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/ckpt/checkpoint0149reltr.pth'
+ckpt_blip = 'https://storage.googleapis.com/sfr-vision-language-research/BLIP/models/model*_base_caption.pth'

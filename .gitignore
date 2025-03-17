@@ -1,5 +1,7 @@
 0_Datasets
 
+Datasets
+
 .venv
 **/__pycache__/
 
@@ -13,6 +15,8 @@ nltk_data/*
 check_gt.json
 
 khangTA
+
+Checkpoint
 
 EGTRController/pretrained_detr_vg
 CrossEncoderController/vg_test.json
