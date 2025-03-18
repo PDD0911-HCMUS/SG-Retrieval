@@ -19,6 +19,8 @@ def train_engine(model: torch.nn.Module, criterion: torch.nn.Module,
         im = im.to(device)
         tgt = [{k: v.to(device) for k, v in t.items()} for t in tgt]
 
+        print(tgt)
+
         i,g = model(im, tgt)
         # print(src.size())
 
