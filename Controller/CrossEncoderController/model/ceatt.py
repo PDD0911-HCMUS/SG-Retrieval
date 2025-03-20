@@ -39,9 +39,9 @@ class CEAtt(nn.Module):
             key_padding_mask=vision_msk  # mask cho vision
         )
 
-        print(vision.size())
-        print(region.size())
-        print(vision[:, 0].size(),region[:,0].size())
+        # print(vision.size())
+        # print(region.size())
+        # print(vision[:, 0].size(),region[:,0].size())
 
         return vision[:, 0],region[:,0]
     
