@@ -6,9 +6,10 @@ from typing import Optional
 import copy
 
 class GraphEncoder(nn.Module):
-    def __init__(self, hidden_dim, nhead=8, nlayer=6, d_ffn=2048, dropout=0.1, activation="relu", pre_train = 'bert-base-uncased'):
+    def __init__(self, hidden_dim, nhead=8, nlayer=6, d_ffn=2048, dropout=0.1, random_erasing_prob=0.3, activation="relu", pre_train = 'bert-base-uncased'):
         super().__init__()
 
+        self.random_erasing_prob = random_erasing_prob
         self.model_embeding = BertModel.from_pretrained(pre_train)
         self.bbox_embed = MLP(4, hidden_dim, hidden_dim, 3)
         self.encoder_layer = TransformerEncoderLayer(hidden_dim, nhead, d_ffn, dropout, activation)
@@ -62,18 +63,33 @@ class GraphEncoder(nn.Module):
 
         z_t = self.phrase_embed(self._get_embedding_phrase_cls(p_ids, p_msk))
 
-        B = z_t.size(0)
-        cls_token = self.rg_cls.expand(B, -1).unsqueeze(1)
+        random_erasing_prob = 0.3
 
-        combined = torch.cat([cls_token, z_t, b_e], dim=1) # [B, 1 + N_phrase + N_box, hidden_dim]
+        B, N_phrase, _ = z_t.size()
 
-        phrase_pad_mask = (p_msk.sum(dim=-1) == 0)  # [B, N_phrase], type bool
+        padded_mask = (z_t.abs().sum(dim=-1) == 0)
+
+        random_mask  = (torch.rand(B, N_phrase, device=z_t.device) < random_erasing_prob)
+
+        erase_mask = random_mask & (~padded_mask)
+
+        z_t = z_t.masked_fill(erase_mask.unsqueeze(-1), 0)
+        b_e = b_e.masked_fill(erase_mask.unsqueeze(-1), 0)
+
+        phrase_pad_mask = (p_msk.sum(dim=-1) == 0) # [B, N_phrase], type bool
+        phrase_pad_mask = phrase_pad_mask | erase_mask
 
         box_mask_list = []
         for t in tgt:
             box_mask = (t['boxes'].sum(dim=-1) == 0)  # [N_box]
             box_mask_list.append(box_mask)
         box_mask = torch.stack(box_mask_list)  # [B, N_box]
+
+        box_mask = box_mask | erase_mask
+
+        cls_token = self.rg_cls.expand(B, -1).unsqueeze(1)
+
+        combined = torch.cat([cls_token, z_t, b_e], dim=1) # [B, 1 + N_phrase + N_box, hidden_dim]
 
         cls_mask = torch.zeros(B, 1, dtype=torch.bool, device=phrase_pad_mask.device)
 
@@ -141,6 +157,6 @@ def _get_activation_fn(activation):
         return F.glu
     raise RuntimeError(F"activation should be relu/gelu, not {activation}.")
 
-def build_graph_encoder(hidden_dim, nhead=8, nlayer=6, d_ffn=2048, dropout=0.1, activation="relu", pre_train = 'bert-base-uncased'):
-    graph_encoder = GraphEncoder(hidden_dim, nhead, nlayer, d_ffn, dropout, activation, pre_train)
+def build_graph_encoder(hidden_dim, nhead=8, nlayer=6, d_ffn=2048, dropout=0.1, random_erasing_prob=0.3, activation="relu", pre_train = 'bert-base-uncased'):
+    graph_encoder = GraphEncoder(hidden_dim, nhead, nlayer, d_ffn, dropout, random_erasing_prob, activation, pre_train)
     return graph_encoder

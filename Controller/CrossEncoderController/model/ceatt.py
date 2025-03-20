@@ -66,12 +66,14 @@ class Criterion(nn.Module):
         return loss
 
 def build_model(hidden_dim,lr_backbone,masks, backbone, dilation, 
-                nhead, nlayer, d_ffn, dropout, activation, pre_train):
+                nhead, nlayer, d_ffn, dropout, random_erasing_prob, activation, pre_train):
 
     vision_backbone = build_backbone(hidden_dim,lr_backbone,masks, backbone, dilation)
     vision_encoder = build_vision_encoder(vision_backbone, hidden_dim, nhead, nlayer, d_ffn, dropout, activation)
-    graph_encoder = build_graph_encoder(hidden_dim, nhead, nlayer, d_ffn, dropout, activation, pre_train)
+    graph_encoder = build_graph_encoder(hidden_dim, nhead, nlayer, d_ffn, dropout, random_erasing_prob, activation, pre_train)
     
     model = CEAtt(vision_encoder, graph_encoder, hidden_dim, nhead, dropout)
 
-    return model
+    criterion = Criterion(temperature=0.07)
+
+    return model, criterion

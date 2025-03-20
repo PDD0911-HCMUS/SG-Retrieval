@@ -21,7 +21,11 @@ def train_engine(model: torch.nn.Module, criterion: torch.nn.Module,
 
         print(tgt)
 
-        i,g = model(im, tgt)
+        vision,region = model(im, tgt)
+
+        loss = (vision,region)
+
+        print(loss)
         # print(src.size())
 
         break
@@ -47,6 +51,8 @@ if __name__ == "__main__":
     d_ffn=2048
     dropout=0.1
     activation="relu"
+
+    random_erasing_prob=0.3
 
     pre_train = 'bert-base-uncased'
 
@@ -87,10 +93,8 @@ if __name__ == "__main__":
                     )
     
 
-    model = build_model(hidden_dim,lr_backbone,masks, backbone, dilation, 
-                nhead, nlayer, d_ffn, dropout, activation, pre_train)
-    
-    criterion = None
+    model, criterion = build_model(hidden_dim,lr_backbone,masks, backbone, dilation, 
+                nhead, nlayer, d_ffn, dropout, random_erasing_prob, activation, pre_train)
 
     model_without_ddp = model
 
