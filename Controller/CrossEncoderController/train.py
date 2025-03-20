@@ -21,9 +21,9 @@ def set_seed(seed=42):
     np.random.seed(seed)  # NumPy random seed
     torch.manual_seed(seed)  # PyTorch random seed
     torch.cuda.manual_seed(seed)  # Cho GPU
-    torch.cuda.manual_seed_all(seed)  # If use multi-GPU
-    torch.backends.cudnn.deterministic = True  # Ensure fixed results for cuDNN
-    torch.backends.cudnn.benchmark = False  # Turn off benchmarking to avoid differences between runs
+    # torch.cuda.manual_seed_all(seed)  # If use multi-GPU
+    # torch.backends.cudnn.deterministic = True  # Ensure fixed results for cuDNN
+    # torch.backends.cudnn.benchmark = False  # Turn off benchmarking to avoid differences between runs
 
 
 def setup_logger(log_dir, log_file="LOGGER.log"):
@@ -176,7 +176,7 @@ if __name__ == "__main__":
 
     # Dataset
     batch_size = 16
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu") 
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") 
     tokenizer = "bert-base-uncased"
     vg_image_dir = args.ConfigData.img_folder_vg
     vg_anno_train = args.ConfigData.cross_encoder_train
