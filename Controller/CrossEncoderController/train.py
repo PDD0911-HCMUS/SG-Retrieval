@@ -82,6 +82,8 @@ def train_engine(model: torch.nn.Module, criterion: torch.nn.Module,
     criterion.train()
 
     total_loss = 0.0
+    total_loss_v2r = 0.0
+    total_loss_r2v = 0.0
     num_batches = len(data_loader)
 
     start_time = time.time()
@@ -103,7 +105,10 @@ def train_engine(model: torch.nn.Module, criterion: torch.nn.Module,
         optimizer.step()
 
         total_loss += losses['loss'].item()
+        total_loss_v2r += losses['loss_v2r'].item()
+        total_loss_r2v += losses['loss_r2v'].item()
 
+        # ETA
         batch_time = time.time() - batch_start_time
         elapsed_time = time.time() - start_time
         estimated_total_time = (elapsed_time / batch_idx) * num_batches
@@ -120,10 +125,12 @@ def train_engine(model: torch.nn.Module, criterion: torch.nn.Module,
             f"- Grad Norm: {grad_norm:.4f}"
         )
 
-        break
-
     avg_loss = total_loss / num_batches if num_batches > 0 else 0
-    logger.info(f"Epoch {epoch} - Average Training Loss: {avg_loss:.4f}")
+    avg_loss_v2r = total_loss_v2r / num_batches if num_batches > 0 else 0
+    avg_loss_r2v = total_loss_r2v / num_batches if num_batches > 0 else 0
+    logger.info(f"Epoch {epoch} - Average Training Loss: {avg_loss:.4f}"
+                f"- Loss_v2r: {avg_loss_v2r:.4f} "
+                f"- Loss_r2v: {avg_loss_r2v:.4f}")
         
     return avg_loss
 
@@ -135,6 +142,8 @@ def valid_engine(model: torch.nn.Module, criterion: torch.nn.Module,
     criterion.eval()
 
     total_loss = 0.0
+    total_loss_v2r = 0.0
+    total_loss_r2v = 0.0
     num_batches = len(data_loader)
 
     with torch.no_grad():
@@ -144,11 +153,17 @@ def valid_engine(model: torch.nn.Module, criterion: torch.nn.Module,
             vision,region = model(im, tgt)
             losses = criterion(vision,region)
             total_loss += losses['loss'].item()        
-
-            break
+            total_loss_v2r += losses['loss_v2r'].item()
+            total_loss_r2v += losses['loss_r2v'].item()
 
     avg_loss = total_loss / num_batches if num_batches > 0 else 0
-    logger.info(f"Epoch {epoch} - Average Validation Loss: {avg_loss:.4f}")
+    avg_loss_v2r = total_loss_v2r / num_batches if num_batches > 0 else 0
+    avg_loss_r2v = total_loss_r2v / num_batches if num_batches > 0 else 0
+    logger.info(
+        f"Epoch {epoch} - Validation Loss: {avg_loss:.4f} "
+        f"- Loss_v2r: {avg_loss_v2r:.4f} "
+        f"- Loss_r2v: {avg_loss_r2v:.4f}"
+    )
     return avg_loss
 
 if __name__ == "__main__":
