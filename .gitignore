@@ -1,25 +1,24 @@
-0_Datasets
-
-Datasets
-
 .venv
 **/__pycache__/
 
 *.pt
 *.zip
 *.txt
-**/fashion-data/
 *.pth
 
-nltk_data/*
-check_gt.json
+Datasets/VisualGenome
+Datasets/GQA
+Datasets/imaterialist-fashion-2019-FGVC6
+Datasets/fashion-data
+Datasets/BDD
+Datasets/Incidents
+Datasets/IncidentsV2
+Datasets/MSCOCO
+Datasets/tmp
+Datasets/upload
 
-khangTA
+Checkpoint/CrossEncoderAttention
+Checkpoint/IRESGCL
+Checkpoint/RelTR
 
-Checkpoint
-
-EGTRController/pretrained_detr_vg
-CrossEncoderController/vg_test.json
-CrossEncoderController/vg_train.json
-CrossEncoderController/vg_val.json
-CrossEncoderController/vg.json
+Controller/CrossEncoderController/work_dir

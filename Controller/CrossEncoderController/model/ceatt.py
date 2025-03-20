@@ -46,7 +46,7 @@ class CEAtt(nn.Module):
         return vision[:, 0],region[:,0]
     
 class Criterion(nn.Module):
-    def __init__(self, temperature=0.07):
+    def __init__(self, temperature=0.03):
         super().__init__()
         self.temperature = temperature
 
@@ -62,8 +62,13 @@ class Criterion(nn.Module):
         loss_v2r = F.cross_entropy(logits, labels)
         loss_r2v = F.cross_entropy(logits.t(), labels)
 
-        loss = (loss_v2r + loss_r2v) / 2
-        return loss
+        losses = {
+            "loss_v2r": loss_v2r,
+            "loss_r2v": loss_r2v,
+            "loss": (loss_v2r + loss_r2v) / 2
+        }
+
+        return losses
 
 def build_model(hidden_dim,lr_backbone,masks, backbone, dilation, 
                 nhead, nlayer, d_ffn, dropout, random_erasing_prob, activation, pre_train):
