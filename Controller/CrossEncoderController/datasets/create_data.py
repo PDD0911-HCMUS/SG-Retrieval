@@ -24,7 +24,7 @@ class CreateData(Dataset):
         img_id = self.data[idx]['image_id']
         img_path = os.path.join(self.img_folder,str(img_id) + '.jpg')
 
-        img = Image.open(img_path)
+        img = Image.open(img_path).convert('RGB')
         target = self.data[idx]['regions']
 
         img, target = self.prepare(img, target)

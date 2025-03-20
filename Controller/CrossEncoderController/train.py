@@ -26,9 +26,11 @@ def set_seed(seed=42):
     # torch.backends.cudnn.benchmark = False  # Turn off benchmarking to avoid differences between runs
 
 
-def setup_logger(log_dir, log_file="LOGGER.log"):
+def setup_logger(log_dir):
 
     os.makedirs(log_dir, exist_ok=True)
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    log_file = f"LOGGER_{timestamp}.log"
     log_path = os.path.join(log_dir, log_file)
     
     logger = logging.getLogger("train_logger")
@@ -175,6 +177,7 @@ if __name__ == "__main__":
     logger = setup_logger(log_dir)
 
     # Dataset
+    num_workers = 0
     batch_size = 16
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") 
     tokenizer = "bert-base-uncased"
@@ -224,19 +227,39 @@ if __name__ == "__main__":
 
     data_train = DataLoader(dataset_train, 
                             batch_sampler=batch_sampler_train, 
-                            collate_fn=utils.collate_fn
+                            collate_fn=utils.collate_fn,
+                            num_workers=num_workers,  # Load data song song
+                            pin_memory=True
                         )
     
     data_val = DataLoader(dataset_val, 
                         batch_size=batch_size, 
                         sampler=sampler_val,
                         drop_last=False,
-                        collate_fn=utils.collate_fn
+                        collate_fn=utils.collate_fn,
+                        num_workers=num_workers,
+                        pin_memory=True
                     )
     
+    logger.info(f"Training DataLoader Info:")
+    logger.info(f"Total Samples: {len(dataset_train)}")
+    logger.info(f"Total Batches: {len(data_train)}")
+    logger.info(f"Batch Size: {batch_size}")
+    logger.info(f"Num Workers: {num_workers}")
+    logger.info(f"Pin Memory: {data_train.pin_memory}")
+
+    logger.info(f"Validation DataLoader Info:")
+    logger.info(f"Total Samples: {len(dataset_val)}")
+    logger.info(f"Total Batches: {len(data_val)}")
+    logger.info(f"Batch Size: {batch_size}")
+    logger.info(f"Num Workers: {num_workers}")
+    logger.info(f"Pin Memory: {data_val.pin_memory}")
 
     model, criterion = build_model(hidden_dim,lr_backbone,masks, backbone, dilation, 
                 nhead, nlayer, d_ffn, dropout, random_erasing_prob, activation, pre_train)
+    
+    model = model.to(device)
+    criterion = criterion.to(device)
 
     model_without_ddp = model
 
