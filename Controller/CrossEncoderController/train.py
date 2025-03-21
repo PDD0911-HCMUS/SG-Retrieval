@@ -78,7 +78,7 @@ def save_checkpoint(model: torch.nn.Module,
 
 def train_engine(model: torch.nn.Module, criterion: torch.nn.Module,
                     data_loader: Iterable, optimizer: torch.optim.Optimizer,
-                    device: torch.device, epoch: int, logger):
+                    device: torch.device, epoch: int, logger, log_interval):
     
     model.train()
     criterion.train()
@@ -117,15 +117,16 @@ def train_engine(model: torch.nn.Module, criterion: torch.nn.Module,
         eta = estimated_total_time - elapsed_time
 
         # Logging loss
-        logger.info(
-            f"Epoch {epoch} - Iter {batch_idx}/{num_batches} "
-            f"- Time per batch: {batch_time:.2f}s "
-            f"- ETA: {eta/60:.1f} min "
-            f"- Loss_v2r = {losses['loss_v2r'].item():.4f} "
-            f"- Loss_r2v = {losses['loss_r2v'].item():.4f} "
-            f"- Loss = {losses['loss'].item():.4f} "
-            f"- Grad Norm: {grad_norm:.4f}"
-        )
+        if batch_idx % log_interval == 0 or batch_idx == num_batches:
+            logger.info(
+                f"Epoch {epoch} - Iter {batch_idx}/{num_batches} "
+                f"- Time per batch: {batch_time:.2f}s "
+                f"- ETA: {eta/60:.1f} min "
+                f"- Loss_v2r = {losses['loss_v2r'].item():.4f} "
+                f"- Loss_r2v = {losses['loss_r2v'].item():.4f} "
+                f"- Loss = {losses['loss'].item():.4f} "
+                f"- Grad Norm: {grad_norm:.4f}"
+            )
 
     avg_loss = total_loss / num_batches if num_batches > 0 else 0
     avg_loss_v2r = total_loss_v2r / num_batches if num_batches > 0 else 0
@@ -206,11 +207,12 @@ if __name__ == "__main__":
     pre_train = 'bert-base-uncased'
 
     # Training
-    lr_drop=100
+    lr_drop=10
     lr=0.0001
     weight_decay=0.0001
     epochs=200
     start_epoch = 0
+    log_interval = 50
 
     dataset_train = build_data(image_set = 'train',
                          annotation_file=vg_anno_train, 
@@ -273,16 +275,21 @@ if __name__ == "__main__":
 
     optimizer = torch.optim.AdamW(param_dicts, lr=lr,
                                   weight_decay=weight_decay)
-    lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, lr_drop)
+    # lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, lr_drop)
+
+    lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.3, patience=5)
+
 
     print("Start training")
     start_time = time.time()
 
     for epoch in range(start_epoch, epochs):
-        losses_train = train_engine(model, criterion, data_train, optimizer, device, epoch, logger)
-        lr_scheduler.step()
+        losses_train = train_engine(model, criterion, data_train, optimizer, device, epoch, logger, log_interval)
+        
         save_checkpoint(model, optimizer, epoch, losses_train, save_ckpt)
         losses_valid = valid_engine(model, criterion, data_val, device, epoch, logger)
+
+        lr_scheduler.step(losses_valid)
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
