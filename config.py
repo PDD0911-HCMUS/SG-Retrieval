@@ -29,13 +29,14 @@ class ConfigData:
     img_folder_mscoco_valid = os.path.join(root,'MSCOCO/val2017/')
 
     #For CrossEncoderController
-
     cross_encoder_train = os.path.join(root, 'VisualGenome', 'anno_rg/train_data.json')
     cross_encoder_valid = os.path.join(root, 'VisualGenome', 'anno_rg/val_data.json')
 
-
-    anno_train = '0_Datasets/VisualGenome/train.json'
-    anno_valid = '0_Datasets/VisualGenome/val.json'
+    #For IRESGController
+    iresg_train = os.path.join(root, 'VisualGenome', 'anno_reltr/train.json')
+    iresg_val = os.path.join(root, 'VisualGenome', 'anno_reltr/val.json')
+    iresg_test = os.path.join(root, 'VisualGenome', 'anno_reltr/test.json')
+    iresg_rel = os.path.join(root, 'VisualGenome', 'anno_reltr/rel.json')
 
 class Checkpoint:
     root = os.path.join(pwd,'Checkpoint')
