@@ -1,7 +1,7 @@
 import torch
 import torchvision.transforms as T
 from PIL import Image
-import matplotlib.pyplot as plt
+
 from .models.backbone import Backbone, Joiner
 from .models.position_encoding import PositionEmbeddingSine
 from .models.transformer import Transformer
@@ -15,6 +15,11 @@ from flask import Blueprint, request, jsonify, send_from_directory
 import os
 from flask_cors import CORS, cross_origin
 import psycopg2
+import platform
+import matplotlib
+if platform.system() == 'Darwin':
+    matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 sgg_api = Blueprint('sgg', __name__)
 
