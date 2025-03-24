@@ -1,6 +1,8 @@
 import os
+import config as args
 
-DB_URI = "postgresql://postgres:123456@localhost:5432/RetrievalSystemTraffic"
+# DB_URI = "postgresql://postgres:123456@localhost:5432/RetrievalSystemTraffic"
+DB_URI = args.ConfigDB.SQLALCHEMY_DATABASE_URI
 
 os.makedirs("Entities", exist_ok=True)
 
