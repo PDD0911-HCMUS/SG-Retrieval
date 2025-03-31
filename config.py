@@ -37,6 +37,7 @@ class ConfigData:
     iresg_val = os.path.join(root, 'VisualGenome', 'anno_reltr/val.json')
     iresg_test = os.path.join(root, 'VisualGenome', 'anno_reltr/test.json')
     iresg_rel = os.path.join(root, 'VisualGenome', 'anno_reltr/rel.json')
+    iresg_anno = os.path.join(root, 'VisualGenome', 'Rev_v2.json')
 
 class Checkpoint:
     root = os.path.join(pwd,'Checkpoint')

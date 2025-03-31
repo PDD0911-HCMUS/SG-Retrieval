@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from torch import nn
 from .res_backbone import build_backbone
 from .vision_encoder import build_vision_encoder
-from .region_graph_encoder import build_graph_encoder
+from .graph_encoder import build_graph_encoder
 
 class CEAtt(nn.Module):
     def __init__(self, vision_encoder, graph_encoder, hidden_dim, nhead, dropout):
