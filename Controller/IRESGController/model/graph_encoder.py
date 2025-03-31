@@ -56,10 +56,10 @@ class GraphEncoder(nn.Module):
 
     def forward(self, tgt):
 
-        p_ids = torch.stack([t['phrase_ids'] for t in tgt])
-        p_msk = torch.stack([t['phrase_msk'] for t in tgt])
+        t_ids = torch.stack([t['trip'] for t in tgt])
+        t_msk = torch.stack([t['trip_msk'] for t in tgt])
 
-        z_t = self.phrase_embed(self._get_embedding_phrase_cls(p_ids, p_msk))
+        z_t = self.phrase_embed(self._get_embedding_phrase_cls(t_ids, t_msk))
 
         random_erasing_prob = 0.3
 
@@ -73,7 +73,7 @@ class GraphEncoder(nn.Module):
 
         z_t = z_t.masked_fill(erase_mask.unsqueeze(-1), 0)
 
-        phrase_pad_mask = (p_msk.sum(dim=-1) == 0) # [B, N_phrase], type bool
+        phrase_pad_mask = (t_msk.sum(dim=-1) == 0) # [B, N_phrase], type bool
         phrase_pad_mask = phrase_pad_mask | erase_mask
 
         cls_token = self.rg_cls.expand(B, -1).unsqueeze(1)

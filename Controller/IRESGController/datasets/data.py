@@ -9,13 +9,13 @@ from util.misc import nested_tensor_from_tensor_list
 import Controller.IRESGController.datasets.transform as T
 
 class CreateData(Dataset):
-    def __init__(self, image_folder, transforms, ann_file: str, max_length: int = 10):
+    def __init__(self, image_folder, transforms, ann_file: str, tokenizer: str, max_length: int = 10):
         with open(ann_file, 'r') as f:
             self.data = json.load(f)
 
         self.img_folder = image_folder
         self._transforms = transforms
-        self.tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
+        self.tokenizer = BertTokenizer.from_pretrained(tokenizer)
         self.max_length = max_length
 
     def encode_triplets(self, triplets: List[str]) -> Dict[str, torch.Tensor]:
@@ -33,7 +33,7 @@ class CreateData(Dataset):
 
     def __getitem__(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
         image_id_a = self.data[idx]['qe']['image_id']
-        image_id_b = self.data[idx]['que']['iamge_id']
+        image_id_b = self.data[idx]['rev']['image_id']
 
         img_a = Image.open(os.path.join(self.img_folder, image_id_a)).convert('RGB')
         img_b = Image.open(os.path.join(self.img_folder, image_id_b)).convert('RGB')
@@ -108,8 +108,13 @@ def collate_fn_dual_image(batch):
 
     return images_a, images_b, triplets_que_list, triplets_rev_list
 
-def build_data(ann_file: str, ratio: float = 0.8) -> Tuple[Dataset, Dataset]:
-    dataset = CreateData(ann_file)
-    train_size = int(ratio * len(dataset))
-    valid_size = len(dataset) - train_size
-    return random_split(dataset, [train_size, valid_size])
+def build_data(image_folder, ann_file, tokenizer, max_length, image_set):
+
+    dataset = CreateData(image_folder=image_folder,
+                        transforms=make_coco_transforms(image_set),
+                        ann_file=ann_file,
+                        tokenizer=tokenizer,
+                        max_length=max_length
+                        )
+    return dataset
+    

@@ -1,7 +1,4 @@
-from Controller.IRESGController.util import box_ops
-from Controller.IRESGController.util.misc import (NestedTensor, nested_tensor_from_tensor_list,
-                       accuracy, get_world_size, interpolate,
-                       is_dist_avail_and_initialized)
+from Controller.IRESGController.util.misc import NestedTensor
 
 import torch
 import torch.nn.functional as F
@@ -24,14 +21,7 @@ class CEAtt(nn.Module):
         vision, vision_msk, _ = self.vision_encoder(img)
 
         region, region_msk = self.graph_encoder(tgt)
-
-        vision, _ = self.attn_vision(
-            query=vision,
-            key=region,
-            value=region,
-            key_padding_mask=region_msk  # mask cho graph
-        )
-
+        
         region, _ = self.attn_graph(
             query=region,
             key=vision,
@@ -43,7 +33,7 @@ class CEAtt(nn.Module):
         # print(region.size())
         # print(vision[:, 0].size(),region[:,0].size())
 
-        return vision[:, 0],region[:,0]
+        return region[:,0]
     
 class Criterion(nn.Module):
     def __init__(self, temperature=0.03):
@@ -79,6 +69,4 @@ def build_model(hidden_dim,lr_backbone,masks, backbone, dilation,
     
     model = CEAtt(vision_encoder, graph_encoder, hidden_dim, nhead, dropout)
 
-    criterion = Criterion(temperature=0.07)
-
-    return model, criterion
+    return model

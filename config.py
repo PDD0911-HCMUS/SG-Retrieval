@@ -33,9 +33,9 @@ class ConfigData:
     cross_encoder_valid = os.path.join(root, 'VisualGenome', 'anno_rg/val_data.json')
 
     #For IRESGController
-    iresg_train = os.path.join(root, 'VisualGenome', 'anno_reltr/train.json')
-    iresg_val = os.path.join(root, 'VisualGenome', 'anno_reltr/val.json')
-    iresg_test = os.path.join(root, 'VisualGenome', 'anno_reltr/test.json')
+    iresg_train = os.path.join(root, 'VisualGenome', 'anno_iresg/train.json')
+    iresg_valid = os.path.join(root, 'VisualGenome', 'anno_iresg/valid.json')
+    iresg_test = os.path.join(root, 'VisualGenome', 'anno_iresg/test.json')
     iresg_rel = os.path.join(root, 'VisualGenome', 'anno_reltr/rel.json')
     iresg_anno = os.path.join(root, 'VisualGenome', 'Rev_v2.json')
 
