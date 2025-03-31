@@ -38,8 +38,8 @@ class Criterion(nn.Module):
         loss_b = F.cross_entropy(logits.t(), labels)
 
         losses = {
-            "loss_v2r": loss_a,
-            "loss_r2v": loss_b,
+            "loss_a": loss_a,
+            "loss_b": loss_b,
             "loss": (loss_a + loss_b) / 2
         }
 

@@ -86,8 +86,18 @@ def train_engine(model: torch.nn.Module, criterion: torch.nn.Module,
         trip_rev = [{k: v.to(device) for k, v in t.items()} for t in trip_rev]
         
         out_a, out_b = model(im_a,im_b,trip_que,trip_rev)
+        losses = criterion(out_a,out_b)
+
+        optimizer.zero_grad()
+        losses['loss'].backward()
+
+        # Gradient norm (helps control exploding gradient)
+        grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+
+        optimizer.step()
 
         print(out_a.size(), out_b.size())
+        print(losses)
 
         break
     pass
