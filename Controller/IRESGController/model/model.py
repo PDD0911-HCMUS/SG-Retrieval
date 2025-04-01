@@ -16,7 +16,7 @@ class ModelCross(nn.Module):
         out_a = self.model_a(img_a, tgt_a)
         out_b = self.model_a(img_b, tgt_b)
         
-        print(out_a == out_b)
+        # print(out_a == out_b)
 
         return out_a, out_b
 

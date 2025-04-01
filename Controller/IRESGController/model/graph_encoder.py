@@ -42,17 +42,26 @@ class GraphEncoder(nn.Module):
         return z
     
     def _get_embedding_phrase_cls(self, input_ids, mask):
-        cls_embeddings = []
-        for i, m in zip(input_ids, mask):
-            with torch.no_grad():
-                outputs = self.model_embeding(i, attention_mask=m)
-                # outputs.last_hidden_state có shape [batch, seq_length, hidden_dim]
-                # Lấy embedding của token [CLS] (token đầu tiên) cho mỗi sequence
-                cls_emb = outputs.last_hidden_state[:, 0, :]
-                cls_embeddings.append(cls_emb)
-        z = torch.stack(cls_embeddings)
-        
-        return z
+        # input_ids: [batch_size, num_phrase, seq_len]
+        B, N, L = input_ids.shape
+        input_ids = input_ids.view(B * N, L)
+        mask = mask.view(B * N, L)
+
+        # Mask valid câu có ít nhất 1 token (tức là attention_mask có sum > 0)
+        valid = mask.sum(dim=1) > 0
+
+        valid_ids = input_ids[valid]
+        valid_msk = mask[valid]
+
+        with torch.no_grad():
+            outputs = self.model_embeding(valid_ids, attention_mask=valid_msk)
+            cls_embeddings_valid = outputs.last_hidden_state[:, 0, :]
+
+        cls_embeddings = torch.zeros((B * N, outputs.last_hidden_state.size(-1)), device=input_ids.device)
+        cls_embeddings[valid] = cls_embeddings_valid
+
+        cls_embeddings = cls_embeddings.view(B, N, -1)
+        return cls_embeddings
 
     def forward(self, tgt):
 
@@ -60,6 +69,16 @@ class GraphEncoder(nn.Module):
         t_msk = torch.stack([t['trip_msk'] for t in tgt])
 
         z_t = self.phrase_embed(self._get_embedding_phrase_cls(t_ids, t_msk))
+
+        # # Sau khi embedding bằng BERT
+        # z_raw = self._get_embedding_phrase_cls(t_ids, t_msk)
+        # if torch.isnan(z_raw).any():
+        #     print("[NaN DEBUG] BERT embedding output contains NaN!")
+
+        # # Sau khi chiếu qua phrase_embed
+        # z_t = self.phrase_embed(z_raw)
+        # if torch.isnan(z_t).any():
+        #     print("[NaN DEBUG] phrase_embed output contains NaN!")
 
         random_erasing_prob = 0.3
 

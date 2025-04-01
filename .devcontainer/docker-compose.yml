@@ -5,7 +5,7 @@ services:
     image: phamd_image
     container_name: phamd_dev_v1
     hostname: phamd_dev_v1
-
+    shm_size: '32gb' 
     volumes:
       - /radish/phamd/duypd-proj/SG-Retrieval:/workspace
       - /tmp/.X11-unix:/tmp/.X11-unix:rw

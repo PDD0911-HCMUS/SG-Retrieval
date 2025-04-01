@@ -76,6 +76,11 @@ def train_engine(model: torch.nn.Module, criterion: torch.nn.Module,
     model.train()
     criterion.train()
 
+    total_loss = 0.0
+    total_loss_a = 0.0
+    total_loss_b = 0.0
+    num_batches = len(data_loader)
+
     start_time = time.time()
 
     for batch_idx, (im_a, im_b, trip_que, trip_rev) in enumerate(data_loader, start=1):
@@ -84,6 +89,8 @@ def train_engine(model: torch.nn.Module, criterion: torch.nn.Module,
         im_b = im_b.to(device)
         trip_que = [{k: v.to(device) for k, v in t.items()} for t in trip_que]
         trip_rev = [{k: v.to(device) for k, v in t.items()} for t in trip_rev]
+
+        # print(trip_que)
         
         out_a, out_b = model(im_a,im_b,trip_que,trip_rev)
         losses = criterion(out_a,out_b)
@@ -96,11 +103,72 @@ def train_engine(model: torch.nn.Module, criterion: torch.nn.Module,
 
         optimizer.step()
 
-        print(out_a.size(), out_b.size())
-        print(losses)
+        total_loss += losses['loss'].item()
+        total_loss_a += losses['loss_a'].item()
+        total_loss_b += losses['loss_b'].item()
 
-        break
-    pass
+        # ETA
+        batch_time = time.time() - batch_start_time
+        elapsed_time = time.time() - start_time
+        estimated_total_time = (elapsed_time / batch_idx) * num_batches
+        eta = estimated_total_time - elapsed_time
+
+        # Logging loss
+        if batch_idx % log_interval == 0 or batch_idx == num_batches:
+            logger.info(
+                f"Epoch {epoch} - Iter {batch_idx}/{num_batches} "
+                f"- Time per batch: {batch_time:.2f}s "
+                f"- ETA: {eta/60:.1f} min "
+                f"- Loss_a = {losses['loss_a'].item():.4f} "
+                f"- Loss_b = {losses['loss_b'].item():.4f} "
+                f"- Loss = {losses['loss'].item():.4f} "
+                f"- Grad Norm: {grad_norm:.4f}"
+            )
+
+    avg_loss = total_loss / num_batches if num_batches > 0 else 0
+    avg_loss_a = total_loss_a / num_batches if num_batches > 0 else 0
+    avg_loss_b = total_loss_b / num_batches if num_batches > 0 else 0
+    logger.info(f"Epoch {epoch} - Average Training Loss: {avg_loss:.4f}"
+                f"- Loss_a: {avg_loss_a:.4f} "
+                f"- Loss_b: {avg_loss_b:.4f}")
+        
+    return avg_loss
+
+def valid_engine(model: torch.nn.Module, criterion: torch.nn.Module,
+                    data_loader: Iterable,
+                    device: torch.device, epoch: int, logger):
+    
+    model.eval()
+    criterion.eval()
+
+    total_loss = 0.0
+    total_loss_a = 0.0
+    total_loss_b = 0.0
+    num_batches = len(data_loader)
+
+    with torch.no_grad():
+        for batch_idx, (im_a, im_b, trip_que, trip_rev) in enumerate(data_loader, start=1):
+            im_a = im_a.to(device)
+            im_b = im_b.to(device)
+            trip_que = [{k: v.to(device) for k, v in t.items()} for t in trip_que]
+            trip_rev = [{k: v.to(device) for k, v in t.items()} for t in trip_rev]
+
+            out_a, out_b = model(im_a,im_b,trip_que,trip_rev)
+            losses = criterion(out_a,out_b)
+            
+            total_loss += losses['loss'].item()        
+            total_loss_a += losses['loss_a'].item()
+            total_loss_b += losses['loss_b'].item()
+
+    avg_loss = total_loss / num_batches if num_batches > 0 else 0
+    avg_loss_a = total_loss_a / num_batches if num_batches > 0 else 0
+    avg_loss_b = total_loss_b / num_batches if num_batches > 0 else 0
+    logger.info(
+        f"Epoch {epoch} - Validation Loss: {avg_loss:.4f} "
+        f"- Loss_a: {avg_loss_a:.4f} "
+        f"- Loss_b: {avg_loss_b:.4f}"
+    )
+    return avg_loss
 
 if __name__ == "__main__":
 
@@ -111,9 +179,9 @@ if __name__ == "__main__":
     logger = setup_logger(log_dir)
 
     # Dataset
-    num_workers = 0
-    batch_size = 8
-    max_lenght = 10
+    num_workers = 4
+    batch_size = 12
+    max_lenght = 7
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") 
     tokenizer = "bert-base-uncased"
     anno_train = args.ConfigData.iresg_train
@@ -148,7 +216,6 @@ if __name__ == "__main__":
     start_epoch = 0
     log_interval = 50
     
-
     dataset_train = build_data(
         image_folder=vg_image_dir,
         ann_file=anno_train,
@@ -223,10 +290,20 @@ if __name__ == "__main__":
 
     lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.3, patience=5)
 
+    print("Start training")
+    start_time = time.time()
+
     for epoch in range(start_epoch, epochs):
         losses_train = train_engine(model, criterion, data_train, optimizer, device, epoch, logger, log_interval)
+        
+        save_checkpoint(model, optimizer, epoch, losses_train, save_ckpt)
+        losses_valid = valid_engine(model, criterion, data_val, device, epoch, logger)
 
-        break
+        lr_scheduler.step(losses_valid)
+
+    total_time = time.time() - start_time
+    total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+    print('Training time {}'.format(total_time_str))
 
     # split_json(anno)
 
