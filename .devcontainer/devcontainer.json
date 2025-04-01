@@ -1,0 +1,8 @@
+{
+  "name": "PhamD DevContainer",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "phamd_dev",
+  "workspaceFolder": "/workspace",
+  "remoteUser": "root",
+  "runArgs": ["--gpus", "all"]
+}
