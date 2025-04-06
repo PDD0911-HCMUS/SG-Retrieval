@@ -70,23 +70,21 @@ class GraphEncoder(nn.Module):
 
         z_t = self.phrase_embed(self._get_embedding_phrase_cls(t_ids, t_msk))
 
-        # # Sau khi embedding bằng BERT
+        # Sau khi embedding bằng BERT
         # z_raw = self._get_embedding_phrase_cls(t_ids, t_msk)
         # if torch.isnan(z_raw).any():
         #     print("[NaN DEBUG] BERT embedding output contains NaN!")
 
-        # # Sau khi chiếu qua phrase_embed
+        # Sau khi đi qua phrase_embed
         # z_t = self.phrase_embed(z_raw)
         # if torch.isnan(z_t).any():
         #     print("[NaN DEBUG] phrase_embed output contains NaN!")
-
-        random_erasing_prob = 0.3
 
         B, N_phrase, _ = z_t.size()
 
         padded_mask = (z_t.abs().sum(dim=-1) == 0)
 
-        random_mask  = (torch.rand(B, N_phrase, device=z_t.device) < random_erasing_prob)
+        random_mask  = (torch.rand(B, N_phrase, device=z_t.device) < self.random_erasing_prob)
 
         erase_mask = random_mask & (~padded_mask)
 
