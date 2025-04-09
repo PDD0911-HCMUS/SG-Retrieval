@@ -21,8 +21,10 @@ class GraphEncoder(nn.Module):
                             nn.Linear(512, hidden_dim),
                             nn.LayerNorm(hidden_dim))
         
-        self.rg_cls = nn.Parameter(torch.zeros(1, hidden_dim)) #[CLS] Token. It will be learned through the training progress
-        torch.nn.init.xavier_uniform_(self.rg_cls)
+        self.sg_cls = nn.Parameter(torch.zeros(1, hidden_dim)) #[CLS] Token. It will be learned through the training progress
+        self.sg_r_cls = nn.Parameter(torch.zeros(1, hidden_dim)) #[CLS] Token. It will be learned through the training progress
+        torch.nn.init.xavier_uniform_(self.sg_cls)
+        torch.nn.init.xavier_uniform_(self.sg_r_cls)
         
         self.layers = _get_clones(self.encoder_layer, nlayer)
 
@@ -88,23 +90,26 @@ class GraphEncoder(nn.Module):
 
         erase_mask = random_mask & (~padded_mask)
 
-        z_t = z_t.masked_fill(erase_mask.unsqueeze(-1), 0)
+        zr_t = z_t.masked_fill(erase_mask.unsqueeze(-1), 0)
 
         phrase_pad_mask = (t_msk.sum(dim=-1) == 0) # [B, N_phrase], type bool
         phrase_pad_mask = phrase_pad_mask | erase_mask
 
-        cls_token = self.rg_cls.expand(B, -1).unsqueeze(1)
+        cls_token = self.sg_cls.expand(B, -1).unsqueeze(1)
+        cls_r_token = self.sg_r_cls.expand(B, -1).unsqueeze(1)
 
-        combined = torch.cat([cls_token, z_t], dim=1) # [B, 1 + N_phrase, hidden_dim]
+        zt_e = torch.cat([cls_token, z_t], dim=1) # [B, 1 + N_phrase, hidden_dim]
+        zt_r_e = torch.cat([cls_r_token, zr_t], dim=1) # [B, 1 + N_phrase, hidden_dim]
 
         cls_mask = torch.zeros(B, 1, dtype=torch.bool, device=phrase_pad_mask.device)
 
         combined_mask = torch.cat([cls_mask, phrase_pad_mask], dim=1)  # [B, N_phrase]
 
         for layer in self.layers:
-            combined = layer(combined, src_key_padding_mask=combined_mask)
+            zt_e = layer(zt_e, src_key_padding_mask=combined_mask)
+            zt_r_e = layer(zt_r_e, src_key_padding_mask=combined_mask)
 
-        return combined, combined_mask
+        return zt_e, zt_r_e, combined_mask
 
 
 class TransformerEncoderLayer(nn.Module):

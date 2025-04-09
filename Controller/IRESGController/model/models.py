@@ -20,10 +20,21 @@ class CEAtt(nn.Module):
 
         vision, vision_msk, _ = self.vision_encoder(img)
 
-        region, region_msk = self.graph_encoder(tgt)
+        zt_e, zt_r_e, t_mask = self.graph_encoder(tgt)
+
+        print(vision.size())
+        print(zt_e.size())
+        print(zt_r_e.size())
         
-        region, _ = self.attn_graph(
-            query=region,
+        z_e, _ = self.attn_graph(
+            query=zt_e,
+            key=vision,
+            value=vision,
+            key_padding_mask=vision_msk  # mask cho vision
+        )
+
+        zr_e, _ = self.attn_graph(
+            query=zt_e,
             key=vision,
             value=vision,
             key_padding_mask=vision_msk  # mask cho vision
@@ -33,7 +44,7 @@ class CEAtt(nn.Module):
         # print(region.size())
         # print(vision[:, 0].size(),region[:,0].size())
 
-        return region[:,0]
+        return z_e[:,0], zr_e[:, 0]
     
 class Criterion(nn.Module):
     def __init__(self, temperature=0.03):

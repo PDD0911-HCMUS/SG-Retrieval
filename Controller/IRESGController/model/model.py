@@ -13,37 +13,50 @@ class ModelCross(nn.Module):
 
     def forward(self, img_a: NestedTensor, img_b: NestedTensor, tgt_a, tgt_b):
 
-        out_a = self.model_a(img_a, tgt_a)
-        out_b = self.model_a(img_b, tgt_b)
+        z_e_a, zr_e_a = self.model_a(img_a, tgt_a)
+        z_e_b, zr_e_b = self.model_b(img_b, tgt_b)
         
         # print(out_a == out_b)
 
-        return out_a, out_b
+        return z_e_a, zr_e_a, \
+                z_e_b, zr_e_b
 
 class Criterion(nn.Module):
-    def __init__(self, temperature=0.03):
+    def __init__(self, temperature=0.03, alpha=1.0):
         super().__init__()
         self.temperature = temperature
+        self.alpha = alpha  # trọng số cho consistency loss
 
-    def forward(self, out_a, out_b):
-        a = F.normalize(out_a, dim=1)
-        b = F.normalize(out_b, dim=1)
+    def compute_contrastive_loss(self, z_e_a, z_e_b):
+        z_e_a = F.normalize(z_e_a, dim=1)
+        z_e_b = F.normalize(z_e_b, dim=1)
 
-        # Tính ma trận similarity: [B, B]
-        logits = torch.matmul(a, b.t()) / self.temperature
-
-        labels = torch.arange(logits.size(0), device=a.device)
+        logits = torch.matmul(z_e_a, z_e_b.t()) / self.temperature
+        labels = torch.arange(logits.size(0), device=z_e_a.device)
 
         loss_a = F.cross_entropy(logits, labels)
         loss_b = F.cross_entropy(logits.t(), labels)
+        return (loss_a + loss_b) / 2
 
-        losses = {
-            "loss_a": loss_a,
-            "loss_b": loss_b,
-            "loss": (loss_a + loss_b) / 2
+    def compute_consistency_loss(self, z_e, z_r):
+        z_e = F.normalize(z_e, dim=1)
+        z_r = F.normalize(z_r, dim=1)
+        return F.mse_loss(z_e, z_r)
+
+    def forward(self, z_e_a, zr_e_a, z_e_b, zr_e_b):
+        loss_contrastive = self.compute_contrastive_loss(z_e_a, z_e_b)
+
+        loss_cons_a = self.compute_consistency_loss(z_e_a, zr_e_a)
+        loss_cons_b = self.compute_consistency_loss(z_e_b, zr_e_b)
+        loss_consistency = (loss_cons_a + loss_cons_b) / 2
+
+        loss_total = loss_contrastive + self.alpha * loss_consistency
+
+        return {
+            "loss_contrastive": loss_contrastive,
+            "loss_consistency": loss_consistency,
+            "loss": loss_total
         }
-
-        return losses
     
 def build(hidden_dim,lr_backbone,masks, backbone, dilation, 
         nhead, nlayer, d_ffn, dropout, random_erasing_prob, activation, pre_train):

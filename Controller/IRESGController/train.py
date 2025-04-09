@@ -77,8 +77,8 @@ def train_engine(model: torch.nn.Module, criterion: torch.nn.Module,
     criterion.train()
 
     total_loss = 0.0
-    total_loss_a = 0.0
-    total_loss_b = 0.0
+    total_loss_contrastive = 0.0
+    total_loss_consistency = 0.0
     num_batches = len(data_loader)
 
     start_time = time.time()
@@ -92,8 +92,8 @@ def train_engine(model: torch.nn.Module, criterion: torch.nn.Module,
 
         # print(trip_que)
         
-        out_a, out_b = model(im_a,im_b,trip_que,trip_rev)
-        losses = criterion(out_a,out_b)
+        out_a, out_r_a, out_b, out_r_b = model(im_a,im_b,trip_que,trip_rev)
+        losses = criterion(out_a, out_r_a, out_b, out_r_b)
 
         optimizer.zero_grad()
         losses['loss'].backward()
@@ -104,8 +104,8 @@ def train_engine(model: torch.nn.Module, criterion: torch.nn.Module,
         optimizer.step()
 
         total_loss += losses['loss'].item()
-        total_loss_a += losses['loss_a'].item()
-        total_loss_b += losses['loss_b'].item()
+        total_loss_contrastive += losses['loss_contrastive'].item()
+        total_loss_consistency += losses['loss_consistency'].item()
 
         # ETA
         batch_time = time.time() - batch_start_time
@@ -119,18 +119,20 @@ def train_engine(model: torch.nn.Module, criterion: torch.nn.Module,
                 f"Epoch {epoch} - Iter {batch_idx}/{num_batches} "
                 f"- Time per batch: {batch_time:.2f}s "
                 f"- ETA: {eta/60:.1f} min "
-                f"- Loss_a = {losses['loss_a'].item():.4f} "
-                f"- Loss_b = {losses['loss_b'].item():.4f} "
+                f"- loss_contrastive = {losses['loss_contrastive'].item():.4f} "
+                f"- loss_consistency = {losses['loss_consistency'].item():.4f} "
                 f"- Loss = {losses['loss'].item():.4f} "
                 f"- Grad Norm: {grad_norm:.4f}"
             )
 
+        break
+
     avg_loss = total_loss / num_batches if num_batches > 0 else 0
-    avg_loss_a = total_loss_a / num_batches if num_batches > 0 else 0
-    avg_loss_b = total_loss_b / num_batches if num_batches > 0 else 0
+    avg_loss_contrastive = total_loss_contrastive / num_batches if num_batches > 0 else 0
+    avg_loss_consistency = total_loss_consistency / num_batches if num_batches > 0 else 0
     logger.info(f"Epoch {epoch} - Average Training Loss: {avg_loss:.4f}"
-                f"- Loss_a: {avg_loss_a:.4f} "
-                f"- Loss_b: {avg_loss_b:.4f}")
+                f"- loss_contrastive: {avg_loss_contrastive:.4f} "
+                f"- loss_consistency: {avg_loss_consistency:.4f}")
         
     return avg_loss
 
@@ -142,8 +144,8 @@ def valid_engine(model: torch.nn.Module, criterion: torch.nn.Module,
     criterion.eval()
 
     total_loss = 0.0
-    total_loss_a = 0.0
-    total_loss_b = 0.0
+    total_loss_contrastive = 0.0
+    total_loss_consistency = 0.0
     num_batches = len(data_loader)
 
     with torch.no_grad():
@@ -153,20 +155,22 @@ def valid_engine(model: torch.nn.Module, criterion: torch.nn.Module,
             trip_que = [{k: v.to(device) for k, v in t.items()} for t in trip_que]
             trip_rev = [{k: v.to(device) for k, v in t.items()} for t in trip_rev]
 
-            out_a, out_b = model(im_a,im_b,trip_que,trip_rev)
-            losses = criterion(out_a,out_b)
+            out_a, out_r_a, out_b, out_r_b = model(im_a,im_b,trip_que,trip_rev)
+            losses = criterion(out_a, out_r_a, out_b, out_r_b)
             
             total_loss += losses['loss'].item()        
-            total_loss_a += losses['loss_a'].item()
-            total_loss_b += losses['loss_b'].item()
+            total_loss_contrastive += losses['loss_contrastive'].item()
+            total_loss_consistency += losses['loss_consistency'].item()
+
+            break
 
     avg_loss = total_loss / num_batches if num_batches > 0 else 0
-    avg_loss_a = total_loss_a / num_batches if num_batches > 0 else 0
-    avg_loss_b = total_loss_b / num_batches if num_batches > 0 else 0
+    avg_loss_contrastive = total_loss_contrastive / num_batches if num_batches > 0 else 0
+    avg_loss_consistency = total_loss_consistency / num_batches if num_batches > 0 else 0
     logger.info(
         f"Epoch {epoch} - Validation Loss: {avg_loss:.4f} "
-        f"- Loss_a: {avg_loss_a:.4f} "
-        f"- Loss_b: {avg_loss_b:.4f}"
+        f"- loss_contrastive: {avg_loss_contrastive:.4f} "
+        f"- loss_consistency: {avg_loss_consistency:.4f}"
     )
     return avg_loss
 
@@ -205,7 +209,7 @@ if __name__ == "__main__":
     masks=False
 
     #Graph Encoder:
-    random_erasing_prob=0.3
+    random_erasing_prob=0.5
     pre_train = 'bert-base-uncased'
 
     # Training
@@ -300,6 +304,8 @@ if __name__ == "__main__":
         losses_valid = valid_engine(model, criterion, data_val, device, epoch, logger)
 
         lr_scheduler.step(losses_valid)
+
+        break
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
