@@ -22,9 +22,9 @@ class CEAtt(nn.Module):
 
         zt_e, zt_r_e, t_mask = self.graph_encoder(tgt)
 
-        print(vision.size())
-        print(zt_e.size())
-        print(zt_r_e.size())
+        # print(vision.size())
+        # print(zt_e.size())
+        # print(zt_r_e.size())
         
         z_e, _ = self.attn_graph(
             query=zt_e,

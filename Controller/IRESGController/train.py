@@ -125,7 +125,7 @@ def train_engine(model: torch.nn.Module, criterion: torch.nn.Module,
                 f"- Grad Norm: {grad_norm:.4f}"
             )
 
-        break
+        # break
 
     avg_loss = total_loss / num_batches if num_batches > 0 else 0
     avg_loss_contrastive = total_loss_contrastive / num_batches if num_batches > 0 else 0
@@ -162,7 +162,7 @@ def valid_engine(model: torch.nn.Module, criterion: torch.nn.Module,
             total_loss_contrastive += losses['loss_contrastive'].item()
             total_loss_consistency += losses['loss_consistency'].item()
 
-            break
+            # break
 
     avg_loss = total_loss / num_batches if num_batches > 0 else 0
     avg_loss_contrastive = total_loss_contrastive / num_batches if num_batches > 0 else 0
@@ -216,7 +216,7 @@ if __name__ == "__main__":
     lr_drop=10
     lr=0.0001
     weight_decay=0.0001
-    epochs=200
+    epochs=40
     start_epoch = 0
     log_interval = 50
     
@@ -305,7 +305,7 @@ if __name__ == "__main__":
 
         lr_scheduler.step(losses_valid)
 
-        break
+        # # break
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
