@@ -6,16 +6,18 @@
 *.txt
 *.pth
 
-Datasets/VisualGenome
-Datasets/GQA
-Datasets/imaterialist-fashion-2019-FGVC6
-Datasets/fashion-data
-Datasets/BDD
-Datasets/Incidents
-Datasets/IncidentsV2
-Datasets/MSCOCO
-Datasets/tmp
-Datasets/upload
+# Datasets/VisualGenome
+# Datasets/GQA
+# Datasets/imaterialist-fashion-2019-FGVC6
+# Datasets/fashion-data
+# Datasets/BDD
+# Datasets/Incidents
+# Datasets/IncidentsV2
+# Datasets/MSCOCO
+# Datasets/tmp
+# Datasets/upload
+# Datasets/20211217145419_0_10.mp4
+Datasets
 
 Checkpoint/CrossEncoderAttention
 Checkpoint/IRESGCL

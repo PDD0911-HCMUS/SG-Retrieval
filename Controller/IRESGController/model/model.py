@@ -41,13 +41,17 @@ class Criterion(nn.Module):
     def compute_consistency_loss(self, z_e, z_r):
         z_e = F.normalize(z_e, dim=1)
         z_r = F.normalize(z_r, dim=1)
-        return F.mse_loss(z_e, z_r)
+
+        cos = (z_e * z_r).sum(dim=1)        # [B]
+        return (1 - cos).mean()
+        # return F.mse_loss(z_e, z_r)
 
     def forward(self, z_e_a, zr_e_a, z_e_b, zr_e_b):
         loss_contrastive = self.compute_contrastive_loss(z_e_a, z_e_b)
 
         loss_cons_a = self.compute_consistency_loss(z_e_a, zr_e_a)
         loss_cons_b = self.compute_consistency_loss(z_e_b, zr_e_b)
+        print(loss_contrastive, loss_cons_a, loss_cons_b)
         loss_consistency = (loss_cons_a + loss_cons_b) / 2
 
         loss_total = loss_contrastive + self.alpha * loss_consistency

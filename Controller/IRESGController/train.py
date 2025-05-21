@@ -125,14 +125,14 @@ def train_engine(model: torch.nn.Module, criterion: torch.nn.Module,
                 f"- Grad Norm: {grad_norm:.4f}"
             )
 
-        # break
+        break
 
     avg_loss = total_loss / num_batches if num_batches > 0 else 0
     avg_loss_contrastive = total_loss_contrastive / num_batches if num_batches > 0 else 0
     avg_loss_consistency = total_loss_consistency / num_batches if num_batches > 0 else 0
-    logger.info(f"Epoch {epoch} - Average Training Loss: {avg_loss:.4f}"
-                f"- loss_contrastive: {avg_loss_contrastive:.4f} "
-                f"- loss_consistency: {avg_loss_consistency:.4f}")
+    logger.info(f"Epoch {epoch} - Average Training Loss: {avg_loss}"
+                f"- loss_contrastive: {avg_loss_contrastive} "
+                f"- loss_consistency: {avg_loss_consistency}")
         
     return avg_loss
 
@@ -162,15 +162,15 @@ def valid_engine(model: torch.nn.Module, criterion: torch.nn.Module,
             total_loss_contrastive += losses['loss_contrastive'].item()
             total_loss_consistency += losses['loss_consistency'].item()
 
-            # break
+            break
 
     avg_loss = total_loss / num_batches if num_batches > 0 else 0
     avg_loss_contrastive = total_loss_contrastive / num_batches if num_batches > 0 else 0
     avg_loss_consistency = total_loss_consistency / num_batches if num_batches > 0 else 0
     logger.info(
-        f"Epoch {epoch} - Validation Loss: {avg_loss:.4f} "
-        f"- loss_contrastive: {avg_loss_contrastive:.4f} "
-        f"- loss_consistency: {avg_loss_consistency:.4f}"
+        f"Epoch {epoch} - Validation Loss: {avg_loss} "
+        f"- loss_contrastive: {avg_loss_contrastive} "
+        f"- loss_consistency: {avg_loss_consistency}"
     )
     return avg_loss
 
@@ -272,6 +272,8 @@ if __name__ == "__main__":
 
     check_data = dataset_train.__getitem__(0)
 
+    print(check_data[0])
+
     model, criterion = build(hidden_dim,lr_backbone,masks, backbone, dilation, 
                 nhead, nlayer, d_ffn, dropout, random_erasing_prob, activation, pre_train)
     
@@ -305,7 +307,7 @@ if __name__ == "__main__":
 
         lr_scheduler.step(losses_valid)
 
-        # # break
+        break
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))

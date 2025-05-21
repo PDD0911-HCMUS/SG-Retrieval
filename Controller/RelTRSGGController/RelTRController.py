@@ -258,7 +258,7 @@ def sgg_controller():
 
         fileName = file.filename
         file_name = args.ConfigData.dir_upload + fileName
-        path = Path(file_name.replace('.jpg', ''))
+        path = Path(file_name.replace('.jpg', '').replace('.png', ''))
         if not path.exists():
             path.mkdir(parents=True, exist_ok=True)
         im = Image.open(file_name)

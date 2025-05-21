@@ -27,8 +27,8 @@ class CreateData(Dataset):
             return_tensors='pt'
         )
         return {
-            'trip': enc['input_ids'],         # shape: [num_triplets, max_len]
-            'trip_msk': enc['attention_mask'] # shape: [num_triplets, max_len]
+            'trip_ids': enc['input_ids'],         # shape: [num_triplets, max_len]
+            'trip_mask': enc['attention_mask'] # shape: [num_triplets, max_len]
         }
 
     def __getitem__(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
@@ -81,7 +81,7 @@ def make_coco_transforms(image_set):
     raise ValueError(f'unknown {image_set}')
 
 def pad_or_truncate_tensor(item: Dict[str, torch.Tensor], max_i: int = 10) -> Dict[str, torch.Tensor]:
-    for key in ['trip', 'trip_msk']:
+    for key in ['trip_ids', 'trip_mask']:
         if key in item:
             seq = item[key]
             if seq.size(0) < max_i:
