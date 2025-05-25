@@ -69,10 +69,12 @@ class Criterion(nn.Module):
     def forward(self, z_i, z_o, z_e):
         info_nce = self.info_nce_loss(z_o, z_e)
         cosine_sim_o,  cosine_sim_e= self.compute_consistency_loss(z_i, z_o, z_e)
+
+        total = info_nce + self.alpha*((cosine_sim_o + cosine_sim_e) / 2)
         return {
             "info_nce": info_nce,
             "cosine_sim": [cosine_sim_o,  cosine_sim_e],
-            "loss": loss_total
+            "loss": total
         }
     
 def build(hidden_dim,lr_backbone,masks, backbone, dilation, 
