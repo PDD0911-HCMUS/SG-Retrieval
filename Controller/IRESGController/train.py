@@ -92,8 +92,8 @@ def train_engine(model: torch.nn.Module, criterion: torch.nn.Module,
 
         # print(trip_que)
         
-        out_a, out_r_a, out_b, out_r_b = model(im_a,im_b,trip_que,trip_rev)
-        losses = criterion(out_a, out_r_a, out_b, out_r_b)
+        out_a, out_b = model(im_a,im_b,trip_que,trip_rev)
+        losses = criterion(out_a, out_b)
 
         optimizer.zero_grad()
         losses['loss'].backward()

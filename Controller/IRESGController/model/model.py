@@ -13,13 +13,13 @@ class ModelCross(nn.Module):
 
     def forward(self, img_a: NestedTensor, img_b: NestedTensor, tgt_a, tgt_b):
 
-        z_e_a, zr_e_a = self.model_a(img_a, tgt_a)
-        z_e_b, zr_e_b = self.model_b(img_b, tgt_b)
+        z_e_a = self.model_a(img_a, tgt_a)
+        z_e_b = self.model_b(img_b, tgt_b)
         
         # print(out_a == out_b)
 
-        return z_e_a, zr_e_a, \
-                z_e_b, zr_e_b
+        return z_e_a, \
+                z_e_b
 
 class Criterion(nn.Module):
     def __init__(self, temperature=0.03, alpha=1.0):
@@ -46,19 +46,32 @@ class Criterion(nn.Module):
         return (1 - cos).mean()
         # return F.mse_loss(z_e, z_r)
 
-    def forward(self, z_e_a, zr_e_a, z_e_b, zr_e_b):
-        loss_contrastive = self.compute_contrastive_loss(z_e_a, z_e_b)
+    def info_nce_loss(self, z_o, z_e):
+        sim_matrix = torch.mm(z_o, z_e.t()) / self.temperature
+        labels = torch.arange(sim_matrix.size(0), device=sim_matrix.device)
+        loss_i2j = F.cross_entropy(sim_matrix, labels)
+        loss_j2i = F.cross_entropy(sim_matrix.T, labels)
+        return (loss_i2j + loss_j2i) / 2
+    
+    def cosine_sim_loss(self, z_i, z_o, z_e):
+        z_i_norm = F.normalize(z_i, p=2, dim=1)
+        z_o_norm = F.normalize(z_o, p=2, dim=1)
+        z_e_norm = F.normalize(z_e, p=2, dim=1)
 
-        loss_cons_a = self.compute_consistency_loss(z_e_a, zr_e_a)
-        loss_cons_b = self.compute_consistency_loss(z_e_b, zr_e_b)
-        print(loss_contrastive, loss_cons_a, loss_cons_b)
-        loss_consistency = (loss_cons_a + loss_cons_b) / 2
+        sim_o = (z_i_norm * z_o_norm).sum(dim=1)
+        sim_e = (z_i_norm * z_e_norm).sum(dim=1)
 
-        loss_total = loss_contrastive + self.alpha * loss_consistency
+        loss_o = (1-sim_o).mean()
+        loss_e = (1-sim_e).mean()
+        return loss_o, loss_e
 
+
+    def forward(self, z_i, z_o, z_e):
+        info_nce = self.info_nce_loss(z_o, z_e)
+        cosine_sim_o,  cosine_sim_e= self.compute_consistency_loss(z_i, z_o, z_e)
         return {
-            "loss_contrastive": loss_contrastive,
-            "loss_consistency": loss_consistency,
+            "info_nce": info_nce,
+            "cosine_sim": [cosine_sim_o,  cosine_sim_e],
             "loss": loss_total
         }
     

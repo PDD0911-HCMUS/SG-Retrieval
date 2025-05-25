@@ -19,11 +19,10 @@ class CEAtt(nn.Module):
     def forward(self, img: NestedTensor, tgt):
 
         vision, vision_msk, _ = self.vision_encoder(img)
-        zt_e, zt_r_e, t_mask = self.graph_encoder(tgt)
+        zt_e, t_mask = self.graph_encoder(tgt)
 
         # print(vision.size())
         # print(zt_e.size())
-        # print(zt_r_e.size())
         
         z_e, _ = self.attn_graph(
             query=zt_e,
@@ -32,47 +31,13 @@ class CEAtt(nn.Module):
             key_padding_mask=vision_msk  # mask cho vision
         )
 
-        zr_e, _ = self.attn_graph(
-            query=zt_r_e,
-            key=vision,
-            value=vision,
-            key_padding_mask=vision_msk  # mask cho vision
-        )
-
         print(vision.size())
         print(zt_e.size())
-        print(zt_r_e.size())
         # print(vision[:, 0].size(),region[:,0].size())
 
         print(z_e[:,0].size())
-        print(zr_e[:,0].size())
 
-        return z_e[:,0], zr_e[:, 0]
-    
-class Criterion(nn.Module):
-    def __init__(self, temperature=0.03):
-        super().__init__()
-        self.temperature = temperature
-
-    def forward(self, vision_embed, region_embed):
-        vision_emb = F.normalize(vision_embed, dim=1)
-        graph_emb = F.normalize(region_embed, dim=1)
-
-        # Tính ma trận similarity: [B, B]
-        logits = torch.matmul(vision_emb, graph_emb.t()) / self.temperature
-
-        labels = torch.arange(logits.size(0), device=vision_emb.device)
-
-        loss_v2r = F.cross_entropy(logits, labels)
-        loss_r2v = F.cross_entropy(logits.t(), labels)
-
-        losses = {
-            "loss_v2r": loss_v2r,
-            "loss_r2v": loss_r2v,
-            "loss": (loss_v2r + loss_r2v) / 2
-        }
-
-        return losses
+        return z_e[:,0]
 
 def build_model(hidden_dim,lr_backbone,masks, backbone, dilation, 
                 nhead, nlayer, d_ffn, dropout, random_erasing_prob, activation, pre_train):

@@ -108,9 +108,7 @@ class GraphEncoder(nn.Module):
           'trip_mask': Tensor[N, L]
         returns:
           zt_e:    [B, 1+N, hidden_dim] original
-          zt_r_e:  [B, 1+N, hidden_dim] with random-deletion
           mask_e:  [B, 1+N] key_padding_mask for original
-          mask_r:  [B, 1+N] key_padding_mask for erased
         """
         # 1) stack inputs
         t_ids = torch.stack([x['trip_ids'] for x in batch])   # [B, N, L]
@@ -118,41 +116,26 @@ class GraphEncoder(nn.Module):
 
         # 2) get BERT [CLS] for each phrase
         cls_emb = self._get_embedding_phrase_cls(t_ids, t_msk)  # [B, N, bert_hidden]
-        z_t = self.phrase_embed(cls_emb)                       # [B, N, hidden_dim]
+        z_t = self.phrase_embed(cls_emb)                        # [B, N, hidden_dim]
 
         B, N, D = z_t.shape
 
         # 3) compute padded mask
         pad_mask = (t_msk.sum(dim=-1) == 0)  # [B, N]
 
-        # 4) random delete only in training
-        if self.training and self.random_delete_prob > 0:
-            rand = torch.rand(B, N, device=z_t.device)
-            delete_mask = (rand < self.random_delete_prob) & (~pad_mask)
-        else:
-            delete_mask = torch.zeros_like(pad_mask)
-
-        # 5) build erased version
-        z_t_erased = z_t.masked_fill(delete_mask.unsqueeze(-1), 0)
-
         # 6) prepend CLS tokens
-        cls       = self.sg_cls.expand(B, -1).unsqueeze(1)           # [B,1,D]
-        cls_er    = self.sg_cls_erased.expand(B, -1).unsqueeze(1)    # [B,1,D]
-        zt_e      = torch.cat([cls,       z_t], dim=1)              # [B,1+N,D]
-        zt_r_e    = torch.cat([cls_er,    z_t_erased], dim=1)       # [B,1+N,D]
+        cls = self.sg_cls.expand(B, -1).unsqueeze(1) # [B,1,D]
+        zt_e = torch.cat([cls,       z_t], dim=1) # [B,1+N,D]
 
         # 7) build key_padding masks
         cls_mask  = torch.zeros(B, 1, dtype=torch.bool, device=pad_mask.device)
-        mask_e    = torch.cat([cls_mask, pad_mask],   dim=1)        # [B,1+N]
-        mask_r    = torch.cat([cls_mask, pad_mask|delete_mask], dim=1)
+        mask_e    = torch.cat([cls_mask, pad_mask],   dim=1) # [B,1+N]
 
         # 8) pass through Transformer layers
         for layer in self.layers:
             zt_e   = layer(zt_e,   src_key_padding_mask=mask_e)
-            zt_r_e = layer(zt_r_e, src_key_padding_mask=mask_r)
-
         # return zt_e, zt_r_e, mask_e, mask_r
-        return zt_e, zt_r_e, mask_e
+        return zt_e, mask_e
 
 def build_graph_encoder(
     hidden_dim: int,
