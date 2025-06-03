@@ -50,10 +50,7 @@ class CEAtt(nn.Module):
             key_padding_mask=z_i_b_msk  # mask cho vision
         )
 
-        # print(z_i.size())
-        # print(zt_e.size())
-
-        # print(z_o[:,0].size())
+        print(f"z_i embedding: {z_i[:,0].size()}\nz_o embedding: {z_o[:,0].size()}\nz_e embedding: {z_e[:,0].size()}\nz_be embedding: {z_be[:,0].size()}")
 
         return  z_i[:,0], z_o[:,0], z_e[:,0], z_be[:,0]
     

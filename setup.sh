@@ -1,5 +1,5 @@
 #Export Python Path
-export PYTHONPATH='/Users/duypd/MyPC/MyProject/SG-Retrieval'
+export PYTHONPATH='/home/duypd/ThisPC-DuyPC/SG-Retrieval'
 echo $PYTHONPATH
 
 #Generate Entities 
