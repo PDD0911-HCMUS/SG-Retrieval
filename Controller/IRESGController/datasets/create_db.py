@@ -6,7 +6,8 @@ from typing import List, Tuple, Dict
 from PIL import Image
 import os
 from util.misc import nested_tensor_from_tensor_list
-import Controller.IRESGController.datasets.transform as T
+import torchvision.transforms as T
+from tqdm import tqdm
 
 class CreateDB(Dataset):
     def __init__(self, image_folder, transforms, ann_file: str, tokenizer: str, max_length: int = 10):
@@ -39,8 +40,8 @@ class CreateDB(Dataset):
         img_b = Image.open(os.path.join(self.img_folder, image_id_b)).convert('RGB')
 
         if self._transforms is not None:
-            img_a, _ = self._transforms(img_a, target = None)
-            img_b, _ = self._transforms(img_b, target = None)
+            img_a = self._transforms(img_a).unsqueeze(0)
+            img_b = self._transforms(img_b).unsqueeze(0)
 
         triplets_que = self.encode_triplets(self.data[idx]['qe']['trip'])
         triplets_rev = self.encode_triplets(self.data[idx]['rev']['trip'])
@@ -51,15 +52,13 @@ class CreateDB(Dataset):
     
 def make_coco_transforms():
 
-    normalize = T.Compose([
+    transform = T.Compose([
+        T.Resize(512),
         T.ToTensor(),
         T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
 
-    return T.Compose([
-        T.RandomResize([512]),
-        normalize,
-    ])
+    return transform
 
 def pad_or_truncate_tensor(item: Dict[str, torch.Tensor], max_i: int = 10) -> Dict[str, torch.Tensor]:
     for key in ['trip_ids', 'trip_mask']:
@@ -95,13 +94,13 @@ def create_db(image_folder, ann_file, tokenizer, max_length):
                         )
     return dataset
 
-def build_db(data_loader):
-    image_ids_a, images_id_b = [], []
-    triplets_que, triplets_rev = [], []
-    imgs_a, imgs_b = [], []
-    for img_a, img_b, trip_que, trip_rev, image_id_a, image_id_b in data_loader:
-        image_ids_a.append(image_id_a[0]), images_id_b.append(image_id_b[0])
-        triplets_que.append(trip_que[0]), triplets_rev.append(trip_rev[0])
-        imgs_a.append(img_a[0]), imgs_b.append(img_b[0])
+# def build_db(data_loader, model):
+#     image_ids_a, images_id_b = [], []
+#     triplets_que, triplets_rev = [], []
+#     imgs_a, imgs_b = [], []
+#     for img_a, img_b, trip_que, trip_rev, image_id_a, image_id_b in tqdm(data_loader):
+#         image_ids_a.append(image_id_a[0]), images_id_b.append(image_id_b[0])
+#         # triplets_que.append(trip_que[0]), triplets_rev.append(trip_rev[0])
+#         # imgs_a.append(img_a[0]), imgs_b.append(img_b[0])
 
-    print("================= DONE =============")
+#     print("================= DONE =============")

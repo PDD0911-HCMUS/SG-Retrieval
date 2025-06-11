@@ -54,8 +54,6 @@ class CEAtt(nn.Module):
 
         return  z_i[:,0], z_o[:,0], z_e[:,0], z_be[:,0]
     
-
-
 def build_model(hidden_dim,lr_backbone,masks, backbone, dilation, 
                 nhead, nlayer, d_ffn, dropout, random_erasing_prob, activation, pre_train):
 

@@ -43,6 +43,9 @@ class Criterion(nn.Module):
 
     def forward(self, z_i, z_o, z_e, z_be):
         info_nce = self.info_nce_loss(z_o, z_e)
+        info_nce_oeB = self.info_nce_loss(z_o, z_be)
+        info_nce_eeB = self.info_nce_loss(z_e, z_be)
+
         cosine_sim_o = self.cosine_sim_loss(z_i, z_o)
         cosine_sim_e = self.cosine_sim_loss(z_i, z_e)
         cosine_sim_be = self.cosine_sim_loss(z_be, z_e)
