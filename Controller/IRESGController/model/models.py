@@ -20,8 +20,8 @@ class CEAtt(nn.Module):
     
     def forward(self, img_a: NestedTensor, img_b: NestedTensor, tgt_o, tgt_e):
 
-        z_i, z_i_msk, _ = self.vision_encoder(img_a)
-        z_i_b, z_i_b_msk, _ = self.vision_encoder(img_b)
+        z_iA, z_iA_msk, _ = self.vision_encoder(img_a)
+        z_iB, z_iB_msk, _ = self.vision_encoder(img_b)
 
         zt_o, t_mask = self.graph_encoder_o(tgt_o)
         zt_e, t_mask = self.graph_encoder_e(tgt_e)
@@ -31,28 +31,28 @@ class CEAtt(nn.Module):
         
         z_o, _ = self.attn_graph_o(
             query=zt_o,
-            key=z_i,
-            value=z_i,
-            key_padding_mask=z_i_msk  # mask cho vision
+            key=z_iA,
+            value=z_iA,
+            key_padding_mask=z_iA_msk  # mask cho vision
         )
 
         z_e, _ = self.attn_graph_e(
             query=zt_e,
-            key=z_i,
-            value=z_i,
-            key_padding_mask=z_i_msk  # mask cho vision
+            key=z_iA,
+            value=z_iA,
+            key_padding_mask=z_iA_msk  # mask cho vision
         )
 
-        z_be, _ = self.attn_graph_be(
+        z_eB, _ = self.attn_graph_be(
             query=zt_e,
-            key=z_i_b,
-            value=z_i_b,
-            key_padding_mask=z_i_b_msk  # mask cho vision
+            key=z_iB,
+            value=z_iB,
+            key_padding_mask=z_iB_msk  # mask cho vision
         )
 
-        print(f"z_i embedding: {z_i[:,0].size()}\nz_o embedding: {z_o[:,0].size()}\nz_e embedding: {z_e[:,0].size()}\nz_be embedding: {z_be[:,0].size()}")
+        # print(f"z_i embedding: {z_i[:,0].size()}\nz_o embedding: {z_o[:,0].size()}\nz_e embedding: {z_e[:,0].size()}\nz_be embedding: {z_be[:,0].size()}")
 
-        return  z_i[:,0], z_o[:,0], z_e[:,0], z_be[:,0]
+        return  z_iA[:,0], z_o[:,0], z_e[:,0], z_eB[:,0]
     
 def build_model(hidden_dim,lr_backbone,masks, backbone, dilation, 
                 nhead, nlayer, d_ffn, dropout, random_erasing_prob, activation, pre_train):

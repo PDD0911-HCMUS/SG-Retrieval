@@ -42,4 +42,4 @@ lr=0.0001
 weight_decay=0.0001
 epochs=40
 start_epoch = 0
-log_interval = 50
+log_interval = 1

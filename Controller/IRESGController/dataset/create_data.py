@@ -1,4 +1,4 @@
-import Controller.IRESGController.datasets.transform as T
+import Controller.IRESGController.dataset.transform as T
 import json
 from torch.utils.data import Dataset
 import torch

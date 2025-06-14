@@ -12,9 +12,9 @@ class ModelCross(nn.Module):
 
     def forward(self, img_a: NestedTensor, img_b: NestedTensor, tgt_a, tgt_b):
 
-        z_i, z_o, z_e, z_be = self.models(img_a, img_b, tgt_a, tgt_b)
+        z_iA, z_o, z_e, z_eB = self.models(img_a, img_b, tgt_a, tgt_b)
 
-        return z_o, z_e, z_i, z_be
+        return z_o, z_e, z_iA, z_eB
 
 class Criterion(nn.Module):
     def __init__(self, temperature=0.03, alpha=1.0):
@@ -42,7 +42,8 @@ class Criterion(nn.Module):
 
 
     def forward(self, z_i, z_o, z_e, z_be):
-        info_nce = self.info_nce_loss(z_o, z_e)
+        # info_nce = self.info_nce_loss(z_o, z_e)
+
         info_nce_oeB = self.info_nce_loss(z_o, z_be)
         info_nce_eeB = self.info_nce_loss(z_e, z_be)
 
@@ -50,14 +51,16 @@ class Criterion(nn.Module):
         cosine_sim_e = self.cosine_sim_loss(z_i, z_e)
         cosine_sim_be = self.cosine_sim_loss(z_be, z_e)
 
-        avg_cosine = (cosine_sim_o + cosine_sim_e + cosine_sim_be) / 3
+        cosine = (cosine_sim_o + cosine_sim_e + cosine_sim_be) / 3
+        info_nce = (info_nce_oeB + info_nce_eeB) / 2
 
-        total = info_nce + self.alpha*avg_cosine
+        total = info_nce + self.alpha*cosine
 
         return {
+            "elem_info_nce": [info_nce_oeB, info_nce_eeB],
+            "elem_cosine_sim": [cosine_sim_o, cosine_sim_e, cosine_sim_be],
+            "cosine_sim": cosine,
             "info_nce": info_nce,
-            "cosine_sim": [cosine_sim_o,  cosine_sim_e, cosine_sim_be],
-            "avg_cosine": avg_cosine,
             "loss": total
         }
     

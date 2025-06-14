@@ -6,7 +6,7 @@ from typing import List, Tuple, Dict
 from PIL import Image
 import os
 from util.misc import nested_tensor_from_tensor_list
-import Controller.IRESGController.datasets.transform as T
+import Controller.IRESGController.dataset.transform as T
 
 class CreateData(Dataset):
     def __init__(self, image_folder, transforms, ann_file: str, tokenizer: str, max_length: int = 10):

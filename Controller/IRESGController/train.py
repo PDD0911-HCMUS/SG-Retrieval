@@ -1,5 +1,5 @@
-from Controller.IRESGController.datasets.data import build_data, collate_fn_dual_image
-from Controller.IRESGController.datasets.create_db import create_db, collate_fn_dual_image_db
+from Controller.IRESGController.dataset.data import build_data, collate_fn_dual_image
+from Controller.IRESGController.dataset.create_db import create_db, collate_fn_dual_image_db
 from Controller.IRESGController.model.model import build, ModelCross
 from Controller.IRESGController.util.misc import setup_logger
 from Controller.IRESGController.train_engine import *
@@ -131,7 +131,7 @@ if __name__ == "__main__":
         losses_train = train_engine(model, criterion, data_train, optimizer, device, epoch, logger, log_interval)
         
         save_checkpoint(model, optimizer, epoch, losses_train, save_ckpt)
-        losses_valid = valid_engine(model, criterion, data_val, data_db, device, epoch, logger)
+        losses_valid = valid_engine(model, criterion, data_val, data_db, device, epoch, logger, log_interval)
 
         lr_scheduler.step(losses_valid)
 
