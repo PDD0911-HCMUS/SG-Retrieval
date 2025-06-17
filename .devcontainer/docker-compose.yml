@@ -23,7 +23,7 @@ services:
               capabilities: [gpu]
     ports:
       - 8009:80
-    networks:
-      - localhost
+    # networks:
+    #   - localhost
     stdin_open: true
     tty: true
