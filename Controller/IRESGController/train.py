@@ -134,8 +134,9 @@ if __name__ == "__main__":
         losses_valid = valid_engine(model, criterion, data_val, data_db, device, epoch, logger, log_interval)
 
         lr_scheduler.step(losses_valid)
+        lr_scheduler.step()
 
-        break
+        # break
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))

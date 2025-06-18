@@ -6,6 +6,7 @@ from Controller.IRESGController.model.model import ModelCross
 from tqdm import tqdm
 import faiss
 from collections import defaultdict
+import torch.nn.functional as F
 
 def train_engine(model: ModelCross, criterion: torch.nn.Module,
                 data_loader: Iterable, optimizer: torch.optim.Optimizer,
@@ -64,7 +65,7 @@ def train_engine(model: ModelCross, criterion: torch.nn.Module,
                 f"- Loss = {losses['loss'].item():.5f} "
             )
 
-        break
+            # break
 
     avg_loss = total_loss / num_batches if num_batches > 0 else 0
     avg_info_nce = total_info_nce / num_batches if num_batches > 0 else 0
@@ -113,7 +114,7 @@ def valid_engine(model: ModelCross, criterion: torch.nn.Module,
             elem_cosine_sim = [f"{y.item():.5f}" for y in losses['elem_cosine_sim']]
             if batch_idx % log_interval == 0 or batch_idx == num_batches:
                 logger.info(
-                    f"Epoch {epoch} - Iter {batch_idx}/{num_batches} "
+                    f"Epoch (val) {epoch} - Iter {batch_idx}/{num_batches} "
                     f"- Time per batch: {batch_time:.2f}s "
                     f"- ETA: {eta/60:.1f} min "
                     f"- elem_info_nce = {elem_info_nce} "
@@ -123,7 +124,7 @@ def valid_engine(model: ModelCross, criterion: torch.nn.Module,
                     f"- Loss = {losses['loss'].item():.5f} "
                 )
 
-            break
+                # break
         
         
         avg_loss = total_loss / num_batches if num_batches > 0 else 0
@@ -141,6 +142,9 @@ def valid_engine(model: ModelCross, criterion: torch.nn.Module,
     return avg_loss
 
 def faiss_retrieval_controller(z_que, set_z_rev, images_id_rev):
+    z_que = F.normalize(z_que, p=2, dim=1)
+    if isinstance(z_que, torch.Tensor):
+        z_que = z_que.detach().cpu().numpy().astype('float32')
     set_z_rev = np.stack([
         t.detach().cpu().numpy() for t in set_z_rev
     ]).astype('float32')
@@ -154,27 +158,28 @@ def create_gallery(model: ModelCross, data_db: Iterable, device):
     images_ids_b = []
     triplets_rev = []
     # imgs_b = []
+    with torch.no_grad():
+        for img_a, img_b, trip_que, trip_rev, image_id_a, image_id_b in tqdm(data_db):
 
-    for img_a, img_b, trip_que, trip_rev, image_id_a, image_id_b in tqdm(data_db):
+            images_ids_b.append(image_id_b[0])
 
-        images_ids_b.append(image_id_b[0])
+            img_b = img_b[0].to(device)
+            trip_rev = [{k: v.to(device) for k, v in t.items()} for t in trip_rev]
+            z_iB, z_iB_msk, _ = model.models.vision_encoder(img_b)
 
-        img_b = img_b[0].to(device)
-        trip_rev = [{k: v.to(device) for k, v in t.items()} for t in trip_rev]
-        z_iB, z_iB_msk, _ = model.models.vision_encoder(img_b)
+            ge, _ = model.models.graph_encoder_e(trip_rev)
+            
+            z_eb, _ = model.models.attn_graph_be(
+                query=ge,
+                key=z_iB,
+                value=z_iB,
+                key_padding_mask=z_iB_msk
+            )
+            # imgs_b.append(z_iB[:,0])
+            z_eb = F.normalize(z_eb, p=2, dim=1)
+            triplets_rev.append(z_eb[:,0][0])
 
-        ge, _ = model.models.graph_encoder_e(trip_rev)
-        
-        z_eb, _ = model.models.attn_graph_be(
-            query=ge,
-            key=z_iB,
-            value=z_iB,
-            key_padding_mask=z_iB_msk
-        )
-        # imgs_b.append(z_iB[:,0])
-        triplets_rev.append(z_eb[:,0][0])
-
-    return images_ids_b, triplets_rev
+        return images_ids_b, triplets_rev
 
 def compute_recall(model: ModelCross, data_db: Iterable, device, logger, K = [10, 20, 50]):
 
@@ -194,51 +199,52 @@ def compute_recall(model: ModelCross, data_db: Iterable, device, logger, K = [10
     hits_e = defaultdict(int)
 
     logger.info(f"Start Running Validation")
-    for img_a, img_b, trip_que, trip_rev, image_id_a, image_id_b in tqdm(data_db):
-        image_ids_a.append(image_id_a[0])
+    with torch.no_grad():
+        for img_a, img_b, trip_que, trip_rev, image_id_a, image_id_b in tqdm(data_db):
+            image_ids_a.append(image_id_a[0])
 
-        img_a = img_a[0].to(device)
-        trip_que = [{k: v.to(device) for k, v in t.items()} for t in trip_que]
-        trip_rev = [{k: v.to(device) for k, v in t.items()} for t in trip_rev]
+            img_a = img_a[0].to(device)
+            trip_que = [{k: v.to(device) for k, v in t.items()} for t in trip_que]
+            trip_rev = [{k: v.to(device) for k, v in t.items()} for t in trip_rev]
 
-        z_iA, z_iA_msk, _ = model.models.vision_encoder(img_a)
+            z_iA, z_iA_msk, _ = model.models.vision_encoder(img_a)
 
-        go, _ = model.models.graph_encoder_o(trip_que)
-        ge, _ = model.models.graph_encoder_e(trip_rev)
+            go, _ = model.models.graph_encoder_o(trip_que)
+            ge, _ = model.models.graph_encoder_e(trip_rev)
 
-        z_o, _ = model.models.attn_graph_o(
-            query=go,
-            key=z_iA,
-            value=z_iA,
-            key_padding_mask=z_iA_msk)
-        
-        z_e, _ = model.models.attn_graph_e(
-            query=ge,
-            key=z_iA,
-            value=z_iA,
-            key_padding_mask=z_iA_msk)
-        
-        imgs_a.append(z_iA[:,0])
-        # triplets_que_o.append(z_o[:,0][0])
-        # triplets_que_e.append(z_e[:,0][0])
+            z_o, _ = model.models.attn_graph_o(
+                query=go,
+                key=z_iA,
+                value=z_iA,
+                key_padding_mask=z_iA_msk)
+            
+            z_e, _ = model.models.attn_graph_e(
+                query=ge,
+                key=z_iA,
+                value=z_iA,
+                key_padding_mask=z_iA_msk)
+            
+            imgs_a.append(z_iA[:,0])
+            # triplets_que_o.append(z_o[:,0][0])
+            # triplets_que_e.append(z_e[:,0][0])
 
-        revO = faiss_retrieval_controller(z_o[:,0][0].unsqueeze(0), triplets_rev, images_ids_b)
-        revE = faiss_retrieval_controller(z_e[:,0][0].unsqueeze(0), triplets_rev, images_ids_b)
-        # print(image_id_a[0], image_id_b[0])
-        for k in K:
-            if(image_id_b[0] in revO[:k]):
-                hits_o[k] += 1
-            if(image_id_b[0] in revE[:k]):
-                hits_e[k] += 1
+            revO = faiss_retrieval_controller(z_o[:,0][0].unsqueeze(0), triplets_rev, images_ids_b)
+            revE = faiss_retrieval_controller(z_e[:,0][0].unsqueeze(0), triplets_rev, images_ids_b)
+            # print(image_id_a[0], image_id_b[0])
+            for k in K:
+                if(image_id_b[0] in revO[:k]):
+                    hits_o[k] += 1
+                if(image_id_b[0] in revE[:k]):
+                    hits_e[k] += 1
 
-        # break
+            # break
 
-    recall_o = {k: hits_o[k] / len(data_db) for k in K}
-    recall_e = {k: hits_e[k] / len(data_db) for k in K}
-    # print("Recall@K for z_o:", recall_o)
-    # print("Recall@K for z_e:", recall_e)
-    logger.info(f"========== Recall for non-Editted and Editted ==========")
-    logger.info(f"non-Editted | R@10: {recall_o[10]:.5f} | R@20: {recall_o[20]:.5f} | R@50: {recall_o[50]:.5f}")
-    logger.info(f"Editted     | R@10: {recall_e[10]:.5f} | R@20: {recall_e[20]:.5f} | R@50: {recall_e[50]:.5f}")
+        recall_o = {k: hits_o[k] / len(data_db) for k in K}
+        recall_e = {k: hits_e[k] / len(data_db) for k in K}
+        # print("Recall@K for z_o:", recall_o)
+        # print("Recall@K for z_e:", recall_e)
+        logger.info(f"========== Recall for non-Editted and Editted ==========")
+        logger.info(f"non-Editted | R@10: {recall_o[10]:.5f} | R@20: {recall_o[20]:.5f} | R@50: {recall_o[50]:.5f}")
+        logger.info(f"Editted     | R@10: {recall_e[10]:.5f} | R@20: {recall_e[20]:.5f} | R@50: {recall_e[50]:.5f}")
 
     return 
