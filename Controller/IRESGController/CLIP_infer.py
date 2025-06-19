@@ -103,8 +103,8 @@ if __name__ == "__main__":
 
     rev_id, Go, Ge = get_set()
 
-    model, _, preprocess = open_clip.create_model_and_transforms('ViT-B-32', pretrained='laion2b_s34b_b79k')
-    tokenizer = open_clip.get_tokenizer('ViT-B-32')
+    model, _, preprocess = open_clip.create_model_and_transforms('ViT-L-14', pretrained='openai')
+    tokenizer = open_clip.get_tokenizer('ViT-L-14')
 
     image_rev = create_gallery(model, rev_id, preprocess, device)
     print("Gallery size:", len(image_rev))
