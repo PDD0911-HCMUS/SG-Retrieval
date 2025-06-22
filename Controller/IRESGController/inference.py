@@ -1,102 +1,74 @@
-from Controller.IRESGController.model.model import build
-import config as args
 import torch
-import torchvision.transforms as T
-import json
-from PIL import Image
-import os
-from typing import List, Dict
-from transformers import BertTokenizer
+from typing import Iterable
+import time
+import numpy as np
+from Controller.IRESGController.model.model import ModelCross
+from tqdm import tqdm
+import faiss
+from collections import defaultdict
 import torch.nn.functional as F
+import json
+import os
+from config_run import *
 
-transform = T.Compose([
-    T.Resize(512),
-    T.ToTensor(),
-    T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-])
+def faiss_retrieval_controller(z_que, set_z_rev, images_id_rev):
+    z_que = F.normalize(z_que, p=2, dim=1)
+    if isinstance(z_que, torch.Tensor):
+        z_que = z_que.detach().cpu().numpy().astype('float32')
+    set_z_rev = np.stack([
+        t.detach().cpu().numpy() for t in set_z_rev
+    ]).astype('float32')
+    index = faiss.IndexFlatIP(set_z_rev.shape[1])  # Dùng Euclidean distance
+    index.add(set_z_rev)
+    D, I = index.search(z_que, k=50)
+    selected_images = [images_id_rev[i] for i in I[0]]
+    return selected_images
 
-tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-
-def get_model():
-    #Transformer encoder:
-    hidden_dim=256
-    nhead=8
-    nlayer=6
-    d_ffn=2048
-    dropout=0.1
-    activation="relu"
-     
-    #Vision Encoder:
-    position_embedding='sine'
-    backbone='resnet50' # choose resnet50, resnet101, 
-    dilation=False
-    frozen_weights=None
-    lr_backbone=1e-05
-    masks=False
-
-    #Graph Encoder:
-    random_erasing_prob=0.3
-    pre_train = 'bert-base-uncased'
-
-    ckpt = args.Checkpoint.ckpt_IRESG
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model, _ = build(hidden_dim,lr_backbone,masks, backbone, dilation, 
-                nhead, nlayer, d_ffn, dropout, random_erasing_prob, activation, pre_train)
-    model.load_state_dict(torch.load(ckpt, map_location=device)['model_state_dict'])
-    return model
-
-def encode_triplets(triplets: List[str]) -> Dict[str, torch.Tensor]:
-    enc = tokenizer(
-        triplets,
-        padding='max_length',
-        truncation=True,
-        max_length=7,
-        return_tensors='pt'
-    )
-    return {
-        'trip': enc['input_ids'],         # shape: [num_triplets, max_len]
-        'trip_msk': enc['attention_mask'] # shape: [num_triplets, max_len]
-    }
-
-def pad_or_truncate_tensor(item: Dict[str, torch.Tensor], max_i: int = 10) -> Dict[str, torch.Tensor]:
-    for key in ['trip', 'trip_msk']:
-        if key in item:
-            seq = item[key]
-            if seq.size(0) < max_i:
-                padding = torch.zeros((max_i - seq.size(0), seq.size(1)), dtype=seq.dtype)
-                item[key] = torch.cat([seq, padding], dim=0)
-            elif seq.size(0) > max_i:
-                item[key] = seq[:max_i]
-    return item
-
-def process_batch(tensor_list: List[Dict[str, torch.Tensor]]) -> List[Dict[str, torch.Tensor]]:
-    return [pad_or_truncate_tensor(item) for item in tensor_list]
-
-def create_input(im, trip, model):
-    img = transform(im).unsqueeze(0)
-    model.eval()
-    print(model.eval())
+def create_gallery(model: ModelCross, data_db: Iterable, device):
+    images_ids_b = []
+    triplets_rev = []
+    # imgs_b = []
     with torch.no_grad():
-        output_a = model.model_a(img, trip)
-        output_b = model.model_b(img, trip)
+        for img_a, img_b, trip_que, trip_rev, image_id_a, image_id_b in tqdm(data_db):
 
-        output_a = F.normalize(output_a, dim=1)
-        output_b = F.normalize(output_b, dim=1)
-        return output_a, output_b
+            images_ids_b.append(image_id_b[0])
 
+            img_b = img_b[0].to(device)
+            trip_rev = [{k: v.to(device) for k, v in t.items()} for t in trip_rev]
+            z_iB, z_iB_msk, _ = model.models.vision_encoder(img_b)
+
+            ge, _ = model.models.graph_encoder_e(trip_rev)
+            
+            z_eb, _ = model.models.attn_graph_be(
+                query=ge,
+                key=z_iB,
+                value=z_iB,
+                key_padding_mask=z_iB_msk
+            )
+            # imgs_b.append(z_iB[:,0])
+            z_eb = F.normalize(z_eb, p=2, dim=1)
+            triplets_rev.append(z_eb[:,0][0])
+
+        return images_ids_b, triplets_rev
+    
+def get_set(json_file):
+    # que_id, rev_id, Go, Ge = [], [], [], []
+    image_ids, triplets = [], []
+    if(len(json_file) > 1):
+        for file in json_file:
+            with open(file, 'r') as f:
+                data = json.load(f)
+
+            for item in tqdm(data):
+                image_ids.append(os.path.join(vg_image_dir, item['rev']['image_id']))
+                image_ids.append(os.path.join(vg_image_dir, item['qe']['image_id']))
+                triplets.append(item['qe']['trip'])
+                triplets.append(item['rev']['trip'])
+
+    return image_ids, triplets
+    
 if __name__ == "__main__":
-    model = get_model()
-    anno_train = args.ConfigData.iresg_train
-    vg_image_dir = args.ConfigData.img_folder_vg
-
-    with open(anno_train, 'r') as f:
-        data = json.load(f)
-
-    sample = data[0]['qe']
-
-    image = Image.open(os.path.join(vg_image_dir, sample['image_id'])).convert('RGB')
-    trip = sample['trip']
-    trip = encode_triplets(trip)
-    trip = [pad_or_truncate_tensor(trip)]
-    output_a, output_b = create_input(image, trip, model)
-    print(output_a, output_b)
+    image_ids, triplets = get_set([anno_train, anno_valid])
+    # get_set(anno_valid)
+    print(len(image_ids), len(triplets))
+    pass
