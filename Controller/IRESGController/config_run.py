@@ -14,6 +14,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 tokenizer = "bert-base-uncased"
 anno_train = args.ConfigData.iresg_train
 anno_valid = args.ConfigData.iresg_valid
+anno = args.ConfigData.iresg_anno
 vg_image_dir = args.ConfigData.img_folder_vg
 
 #Transformer encoder:
@@ -35,6 +36,8 @@ masks=False
 #Graph Encoder:
 random_erasing_prob=0.5
 pre_train = 'bert-base-uncased'
+
+ckpt = args.Checkpoint.ckpt_IRESG
 
 # Training
 lr_drop=10
