@@ -1,9 +1,8 @@
 import torch
 from typing import Iterable
-import time
 import numpy as np
 from Controller.IRESGController.model.model import ModelCross
-from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, BatchSampler
+from torch.utils.data import DataLoader, SequentialSampler
 from Controller.IRESGController.model.model import build, ModelCross
 from tqdm import tqdm
 import faiss
@@ -13,6 +12,9 @@ import json
 import os
 from config_run import *
 from Controller.IRESGController.dataset.create_db import create_db, collate_fn_dual_image_db
+import Entities.entities as entity
+from sqlalchemy.exc import SQLAlchemyError
+from config import db
 
 def faiss_retrieval_controller(z_que, set_z_rev, images_id_rev):
     z_que = F.normalize(z_que, p=2, dim=1)
@@ -27,49 +29,66 @@ def faiss_retrieval_controller(z_que, set_z_rev, images_id_rev):
     selected_images = [images_id_rev[i] for i in I[0]]
     return selected_images
 
-def create_gallery(model: ModelCross, data_db: Iterable, device):
-    images_ids = []
-    triplets = []
-    # imgs_b = []
+def get_embedding(model: ModelCross, img_id, img, triplet, mode, device):
     with torch.no_grad():
+        img = img[0].to(device)
+        triplet = [{k: v.to(device) for k, v in t.items()} for t in triplet]
+
+        z_i, z_i_msk, _ = model.models.vision_encoder(img)
+
+        if(mode == 0):
+            go, _ = model.models.graph_encoder_o(triplet) 
+            z_cross, _ = model.models.attn_graph_o(
+                query=go,
+                key=z_i,
+                value=z_i,
+                key_padding_mask=z_i_msk
+            )
+            z_cross = F.normalize(z_cross, p=2, dim=1)
+        if(mode == 1):
+            ge, _ = model.models.graph_encoder_e(triplet)
+            z_cross, _ = model.models.attn_graph_be(
+                query=ge,
+                key=z_i,
+                value=z_i,
+                key_padding_mask=z_i_msk
+            )
+            z_cross = F.normalize(z_cross, p=2, dim=1)
+
+        return img_id[0], z_cross[:,0][0]
+
+
+    
+def create_gallery(model: ModelCross, data_db: Iterable, device):
+        IRESGVG = entity.IRESGVG
+        # try:
+            
         for img_a, img_b, trip_que, trip_rev, image_id_a, image_id_b in tqdm(data_db):
 
-            images_ids.append(image_id_b[0])
-            images_ids.append(image_id_a[0])
+            im_id_o, z_cross_o = get_embedding(model, image_id_a, img_a, trip_que, 0, device)
+            im_id_e, z_cross_e = get_embedding(model, image_id_b, img_b, trip_rev, 1, device)
 
-            img_b = img_b[0].to(device)
-            img_a = img_a[0].to(device)
-
-            trip_rev = [{k: v.to(device) for k, v in t.items()} for t in trip_rev]
-            trip_que = [{k: v.to(device) for k, v in t.items()} for t in trip_que]
-
-            z_iB, z_iB_msk, _ = model.models.vision_encoder(img_b)
-            z_iA, z_iA_msk, _ = model.models.vision_encoder(img_a)
-
-            ge, _ = model.models.graph_encoder_e(trip_rev)
-            go, _ = model.models.graph_encoder_o(trip_que)
-
-            z_o, _ = model.models.attn_graph_o(
-                query=go,
-                key=z_iA,
-                value=z_iA,
-                key_padding_mask=z_iA_msk
+            insert_o = IRESGVG(
+                image_id = im_id_o,
+                cross_embedding = z_cross_o
             )
-            
-            z_eb, _ = model.models.attn_graph_be(
-                query=ge,
-                key=z_iB,
-                value=z_iB,
-                key_padding_mask=z_iB_msk
+
+            insert_e = IRESGVG(
+                image_id = im_id_e,
+                cross_embedding = z_cross_e
             )
-            # imgs_b.append(z_iB[:,0])
 
-            z_eb = F.normalize(z_eb, p=2, dim=1)
-            z_o = F.normalize(z_o, p=2, dim=1)
-            triplets.append(z_eb[:,0][0])
-            triplets.append(z_o[:,0][0])
+            db.session.add(insert_o)
+            db.session.add(insert_e)
+            break
+        db.session.commit()
+        # except SQLAlchemyError as e:
+        #     print(str(e))
+        #     db.session.rollback()
+        # finally:
+        #     db.session.close()
 
-        return images_ids, triplets
+        return
     
 def get_set(json_file):
     # que_id, rev_id, Go, Ge = [], [], [], []
@@ -110,6 +129,6 @@ if __name__ == "__main__":
     checkpoint = torch.load(ckpt, map_location=torch.device(device))
     model.load_state_dict(checkpoint["model_state_dict"])
     model.eval()
-
+    model = model.to(device)
     create_gallery(model, data_db, device)
     pass

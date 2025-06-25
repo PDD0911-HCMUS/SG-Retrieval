@@ -89,6 +89,17 @@ t_GraphRetrieval_bge_m3_MSCOCO = Table(
 )
 
 
+class IRESGVG(Base):
+    __tablename__ = 'IRESG_VG'
+    __table_args__ = (
+        PrimaryKeyConstraint('ID', name='IRESG_VG_pkey'),
+    )
+
+    ID: Mapped[int] = mapped_column(BigInteger, Identity(always=True, start=1, increment=1, minvalue=1, maxvalue=9223372036854775807, cycle=False, cache=1), primary_key=True)
+    image_id: Mapped[Optional[str]] = mapped_column(Text)
+    cross_embedding: Mapped[Optional[list]] = mapped_column(ARRAY(Double(precision=53)))
+
+
 class Image2GraphEmbedding(Base):
     __tablename__ = 'Image2GraphEmbedding'
     __table_args__ = (

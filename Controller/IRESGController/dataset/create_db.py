@@ -5,7 +5,7 @@ from transformers import BertTokenizer
 from typing import List, Tuple, Dict
 from PIL import Image
 import os
-from util.misc import nested_tensor_from_tensor_list
+from Controller.IRESGController.util.misc import nested_tensor_from_tensor_list
 import torchvision.transforms as T
 from tqdm import tqdm
 
