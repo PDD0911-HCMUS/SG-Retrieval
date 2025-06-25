@@ -14,6 +14,8 @@ class ModelCross(nn.Module):
 
         z_iA, z_o, z_e, z_eB = self.models(img_a, img_b, tgt_a, tgt_b)
 
+        print(z_iA.size(), z_o.size(), z_e.size(), z_eB.size())
+
         return z_o, z_e, z_iA, z_eB
 
 class Criterion(nn.Module):

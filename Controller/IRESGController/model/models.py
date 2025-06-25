@@ -23,31 +23,52 @@ class CEAtt(nn.Module):
         z_iA, z_iA_msk, _ = self.vision_encoder(img_a)
         z_iB, z_iB_msk, _ = self.vision_encoder(img_b)
 
-        zt_o, t_mask = self.graph_encoder_o(tgt_o)
-        zt_e, t_mask = self.graph_encoder_e(tgt_e)
+        zt_o, zt_o_mask = self.graph_encoder_o(tgt_o)
+        zt_e, zt_e_mask = self.graph_encoder_e(tgt_e)
 
         # print(vision.size())
         # print(zt_e.size())
         
+        # z_o, _ = self.attn_graph_o(
+        #     query=zt_o,
+        #     key=z_iA,
+        #     value=z_iA,
+        #     key_padding_mask=z_iA_msk  # mask cho vision
+        # )
+
+        # z_e, _ = self.attn_graph_e(
+        #     query=zt_e,
+        #     key=z_iA,
+        #     value=z_iA,
+        #     key_padding_mask=z_iA_msk  # mask cho vision
+        # )
+
+        # z_eB, _ = self.attn_graph_be(
+        #     query=zt_e,
+        #     key=z_iB,
+        #     value=z_iB,
+        #     key_padding_mask=z_iB_msk  # mask cho vision
+        # )
+
         z_o, _ = self.attn_graph_o(
-            query=zt_o,
-            key=z_iA,
-            value=z_iA,
-            key_padding_mask=z_iA_msk  # mask cho vision
+            query=z_iA,
+            key=zt_o,
+            value=zt_o,
+            key_padding_mask=zt_o_mask  # mask cho triplet
         )
 
         z_e, _ = self.attn_graph_e(
-            query=zt_e,
-            key=z_iA,
-            value=z_iA,
-            key_padding_mask=z_iA_msk  # mask cho vision
+            query=z_iA,
+            key=zt_e,
+            value=zt_e,
+            key_padding_mask=zt_e_mask  # mask cho triplet
         )
 
         z_eB, _ = self.attn_graph_be(
-            query=zt_e,
-            key=z_iB,
-            value=z_iB,
-            key_padding_mask=z_iB_msk  # mask cho vision
+            query=z_iB,
+            key=zt_e,
+            value=zt_e,
+            key_padding_mask=zt_e_mask  # mask cho triplet
         )
 
         # print(f"z_i embedding: {z_i[:,0].size()}\nz_o embedding: {z_o[:,0].size()}\nz_e embedding: {z_e[:,0].size()}\nz_be embedding: {z_be[:,0].size()}")
