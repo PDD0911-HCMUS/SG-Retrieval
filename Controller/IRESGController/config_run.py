@@ -7,7 +7,7 @@ save_ckpt = os.path.join(os.getcwd(), 'Checkpoint', 'IRESG')
 
 # Dataset
 num_workers = 4
-batch_size = 12
+batch_size = 30
 max_lenght = 10
 max_triplet = 10
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") 

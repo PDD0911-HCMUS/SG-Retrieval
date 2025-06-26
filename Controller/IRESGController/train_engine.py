@@ -65,7 +65,7 @@ def train_engine(model: ModelCross, criterion: torch.nn.Module,
                 f"- Loss = {losses['loss'].item():.5f} "
             )
 
-            break
+            # break
 
     avg_loss = total_loss / num_batches if num_batches > 0 else 0
     avg_info_nce = total_info_nce / num_batches if num_batches > 0 else 0
@@ -124,7 +124,7 @@ def valid_engine(model: ModelCross, criterion: torch.nn.Module,
                     f"- Loss = {losses['loss'].item():.5f} "
                 )
 
-                break
+                # break
         
         
         avg_loss = total_loss / num_batches if num_batches > 0 else 0
