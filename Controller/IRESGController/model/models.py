@@ -28,48 +28,50 @@ class CEAtt(nn.Module):
 
         # print(vision.size())
         # print(zt_e.size())
-        
-        # z_o, _ = self.attn_graph_o(
-        #     query=zt_o,
-        #     key=z_iA,
-        #     value=z_iA,
-        #     key_padding_mask=z_iA_msk  # mask cho vision
-        # )
 
-        # z_e, _ = self.attn_graph_e(
-        #     query=zt_e,
-        #     key=z_iA,
-        #     value=z_iA,
-        #     key_padding_mask=z_iA_msk  # mask cho vision
-        # )
-
-        # z_eB, _ = self.attn_graph_be(
-        #     query=zt_e,
-        #     key=z_iB,
-        #     value=z_iB,
-        #     key_padding_mask=z_iB_msk  # mask cho vision
-        # )
-
+        # Ask; Graph, Answer: Image
         z_o, _ = self.attn_graph_o(
-            query=z_iA,
-            key=zt_o,
-            value=zt_o,
-            key_padding_mask=zt_o_mask  # mask cho triplet
+            query=zt_o,
+            key=z_iA,
+            value=z_iA,
+            key_padding_mask=z_iA_msk  # mask cho vision
         )
 
         z_e, _ = self.attn_graph_e(
-            query=z_iA,
-            key=zt_e,
-            value=zt_e,
-            key_padding_mask=zt_e_mask  # mask cho triplet
+            query=zt_e,
+            key=z_iA,
+            value=z_iA,
+            key_padding_mask=z_iA_msk  # mask cho vision
         )
 
         z_eB, _ = self.attn_graph_be(
-            query=z_iB,
-            key=zt_e,
-            value=zt_e,
-            key_padding_mask=zt_e_mask  # mask cho triplet
+            query=zt_e,
+            key=z_iB,
+            value=z_iB,
+            key_padding_mask=z_iB_msk  # mask cho vision
         )
+
+        # Ask; Image, Answer: Graph
+        # z_o, _ = self.attn_graph_o(
+        #     query=z_iA,
+        #     key=zt_o,
+        #     value=zt_o,
+        #     key_padding_mask=zt_o_mask  # mask cho triplet
+        # )
+
+        # z_e, _ = self.attn_graph_e(
+        #     query=z_iA,
+        #     key=zt_e,
+        #     value=zt_e,
+        #     key_padding_mask=zt_e_mask  # mask cho triplet
+        # )
+
+        # z_eB, _ = self.attn_graph_be(
+        #     query=z_iB,
+        #     key=zt_e,
+        #     value=zt_e,
+        #     key_padding_mask=zt_e_mask  # mask cho triplet
+        # )
 
         # print(f"z_i embedding: {z_i[:,0].size()}\nz_o embedding: {z_o[:,0].size()}\nz_e embedding: {z_e[:,0].size()}\nz_be embedding: {z_be[:,0].size()}")
 

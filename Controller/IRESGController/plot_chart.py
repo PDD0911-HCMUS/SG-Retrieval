@@ -6,7 +6,7 @@ non_10, non_20, non_50 = [], [], []
 ed_10, ed_20, ed_50 = [], [], []
 
 # Parse the log file
-with open('/home/duypd/ThisPC-DuyPC/SG-Retrieval/Controller/IRESGController/work_dir/LOGGER_2025-06-17_12-05-52.log', 'r') as f:
+with open('/home/duypd/ThisPC-DuyPC/SG-Retrieval/Controller/IRESGController/work_dir/LOGGER_2025-06-25_08-56-07.log', 'r') as f:
     for line in f:
         # Non-Editted recall
         m_non = re.search(r'non-Editted \| R@10: ([0-9.]+) \| R@20: ([0-9.]+) \| R@50: ([0-9.]+)', line)
