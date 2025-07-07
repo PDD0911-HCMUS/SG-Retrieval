@@ -19,6 +19,9 @@ from PIL import Image
 import json
 from transformers import BertTokenizer
 import traceback
+import matplotlib.pyplot as plt
+import math
+from sklearn.manifold import TSNE
 
 rev_v2_api = Blueprint('rev_v2', __name__)
 
@@ -80,9 +83,9 @@ def get_embedding_query(model: ModelCross, img, triplet, mode, device):
 
         if(mode == 0):
             print("RUN MODE 0000000000000000000000")
-            go, _ = model.models.graph_encoder_o(triplet) 
+            z_t, _ = model.models.graph_encoder_o(triplet) 
             z_cross, _ = model.models.attn_graph_o(
-                query=go,
+                query=z_t,
                 key=z_i,
                 value=z_i,
                 key_padding_mask=z_i_msk
@@ -90,16 +93,16 @@ def get_embedding_query(model: ModelCross, img, triplet, mode, device):
             z_cross = F.normalize(z_cross, p=2, dim=1)
         if(mode == 1):
             print("RUN MODE 111111111111111111111")
-            ge, _ = model.models.graph_encoder_e(triplet)
+            z_t, _ = model.models.graph_encoder_e(triplet)
             z_cross, _ = model.models.attn_graph_be(
-                query=ge,
+                query=z_t,
                 key=z_i,
                 value=z_i,
                 key_padding_mask=z_i_msk
             )
             z_cross = F.normalize(z_cross, p=2, dim=1)
 
-        return z_cross[:,0][0]
+        return z_cross[:,0][0], z_i[:,0], z_t[:,0]
 
 def pad_or_truncate_tensor(item):
     for key in ['trip_ids', 'trip_mask']:
@@ -130,6 +133,34 @@ def create_input(image, triplet):
 
     return img, trip
 
+def consine_similarity(z_i, z_t, filepath):
+    visualize = True
+    # print(filepath.replace(".jpg","") + "/sim.jpg")
+    filepath = filepath.replace(".jpg","") + "/sim.jpg"
+    z_i = F.normalize(z_i, p=2, dim=1)
+    z_t = F.normalize(z_t, p=2, dim=1)
+    score = (z_i * z_t).sum(dim=1)
+    score = score.item()
+    print(z_i.shape[1])
+    if visualize:
+        # Combine and apply t-SNE
+        z_combined = torch.cat([z_i, z_t], dim=0).cpu().numpy()  # shape: [2, 256]
+        z_embedded = TSNE(n_components=2, perplexity=1, n_iter=500, init='random', random_state=42).fit_transform(z_combined)
+
+        # Plot
+        plt.figure(figsize=(5, 5))
+        plt.scatter(z_embedded[0, 0], z_embedded[0, 1], color='red', label='z_i (image)')
+        plt.scatter(z_embedded[1, 0], z_embedded[1, 1], color='blue', label='z_t (triplet)')
+        plt.plot([z_embedded[0, 0], z_embedded[1, 0]],
+                 [z_embedded[0, 1], z_embedded[1, 1]], 'k--', alpha=0.3)
+        plt.title(f"t-SNE visualization\nCosine similarity: {score:.4f}")
+        plt.legend()
+        plt.grid()
+        plt.axis('equal')
+        # plt.show()
+        plt.savefig(filepath)
+        plt.close()
+    return score
 @rev_v2_api.route('/create_gallery', methods = ['GET'])
 @cross_origin()
 def create_gallery():
@@ -225,7 +256,10 @@ def retrieve():
 
         model = get_model()
 
-        z_cross = get_embedding_query(model, img, [trip], edit, device)
+        z_cross, z_i, z_t = get_embedding_query(model, img, [trip], edit, device)
+        # if(edit == 1):
+        score = consine_similarity(z_i, z_t, filepath)
+        print(score)
         z_cross = z_cross.unsqueeze(0)
 
         IRESGVG = entity.IRESGVG
