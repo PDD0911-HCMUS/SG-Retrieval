@@ -94,13 +94,13 @@ def get_embedding_query(model: ModelCross, img, triplet, mode, device):
         if(mode == 1):
             print("RUN MODE 111111111111111111111")
             z_t, _ = model.models.graph_encoder_e(triplet)
-            z_cross, _ = model.models.attn_graph_be(
-                query=z_t,
-                key=z_i,
-                value=z_i,
-                key_padding_mask=z_i_msk
-            )
-            z_cross = F.normalize(z_cross, p=2, dim=1)
+            # z_cross, _ = model.models.attn_graph_be(
+            #     query=z_t,
+            #     key=z_i,
+            #     value=z_i,
+            #     key_padding_mask=z_i_msk
+            # )
+            z_cross = F.normalize(z_t, p=2, dim=1)
 
         return z_cross[:,0][0], z_i[:,0], z_t[:,0]
 

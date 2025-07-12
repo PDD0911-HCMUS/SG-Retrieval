@@ -71,14 +71,20 @@ class CEAtt(nn.Module):
         # Ask; Graph, Answer: Image -> graph2im
         # trường hợp 
         z_o = self.graph2im(self, z_iA, z_iA_msk, zt_o)
-        z_eB_g2i = self.graph2imB(self,  z_iB, z_iB_msk, zt_e)
+        # z_eB_g2i = self.graph2imB(self,  z_iB, z_iB_msk, zt_e)
 
         # Ask; Image, Answer: Graph -> im2graph
-        z_e = self.im2graph(self, z_iA, zt_e, zt_e_mask)
-        z_eB_i2g = self.im2graphB(self, z_iB, zt_e, zt_e_mask)
+        # z_e = self.im2graph(self, z_iA, zt_e, zt_e_mask)
+        # z_eB_i2g = self.im2graphB(self, z_iB, zt_e, zt_e_mask)
+        z_eB_i2g, _ = self.attn_graph_be(
+            query=z_iB,
+            key=zt_e,
+            value=zt_e,
+            key_padding_mask=zt_e_mask  # mask cho triplet
+        )
 
         # Extract cls token from embedding 
-        return  z_iA[:,0], z_o[:,0], z_e[:,0], z_eB_g2i[:,0], z_eB_i2g[:,0]
+        return  z_iA[:,0], z_iB[:,0], zt_e[:,0], z_o[:,0], z_eB_i2g[:,0]  #, z_e[:,0]
     
 def build_model(hidden_dim,lr_backbone,masks, backbone, dilation, 
                 nhead, nlayer, d_ffn, dropout, random_erasing_prob, activation, pre_train):

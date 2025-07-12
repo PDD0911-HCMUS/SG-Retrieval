@@ -1,6 +1,6 @@
 from Controller.IRESGController.dataset.data import build_data, collate_fn_dual_image
 from Controller.IRESGController.dataset.create_db import create_db, collate_fn_dual_image_db
-from Controller.IRESGController.model.model import build, ModelCross
+from Controller.IRESGController.model.model_v2 import build, ModelCross
 from Controller.IRESGController.util.misc import setup_logger
 from Controller.IRESGController.train_engine import *
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, BatchSampler
@@ -136,7 +136,7 @@ if __name__ == "__main__":
         lr_scheduler.step(losses_valid)
         lr_scheduler.step()
 
-        # break
+        break
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
