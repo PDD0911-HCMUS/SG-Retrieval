@@ -65,7 +65,7 @@ def train_engine(model: ModelCross, criterion: torch.nn.Module,
                 f"- Loss = {losses['loss'].item():.5f} "
             )
 
-            break
+            # break
 
     avg_loss = total_loss / num_batches if num_batches > 0 else 0
     avg_info_nce = total_info_nce / num_batches if num_batches > 0 else 0
@@ -124,7 +124,7 @@ def valid_engine(model: ModelCross, criterion: torch.nn.Module,
                     f"- Loss = {losses['loss'].item():.5f} "
                 )
 
-                break
+                # break
         
         
         avg_loss = total_loss / num_batches if num_batches > 0 else 0
@@ -168,21 +168,21 @@ def create_gallery(model: ModelCross, data_db: Iterable, device):
             trip_rev = [{k: v.to(device) for k, v in t.items()} for t in trip_rev]
             z_iB, z_iB_msk, _ = model.models.vision_encoder(img_b)
 
-            zt_e, _ = model.models.graph_encoder_e(trip_rev)
+            zt_e, zt_e_mask = model.models.graph_encoder_e(trip_rev)
             
             z_eb, _ = model.models.attn_graph_be(
-                query=zt_e,
-                key=z_iB,
-                value=z_iB,
-                key_padding_mask=z_iB_msk
+                query=z_iB,
+                key=zt_e,
+                value=zt_e,
+                key_padding_mask=zt_e_mask
             )
-            z_eb = z_eb[:,0][0]
-            z_iB = z_iB[:,0][0]
+            z_eb = model.models.proj(z_eb[:,0])
+            z_iB = model.models.proj(z_iB[:,0])
             z_eb = F.normalize(z_eb, p=2, dim=1)
             z_iB = F.normalize(z_iB, p=2, dim=1)
 
-            triplets_rev.append(z_eb)
-            images_rev.append(z_iB)
+            triplets_rev.append(z_eb[0])
+            images_rev.append(z_iB[0])
 
         return images_ids_b, triplets_rev, images_rev
 
@@ -195,7 +195,6 @@ def compute_recall(model: ModelCross, data_db: Iterable, device, logger, K = [10
 
     image_ids_a = []
     # triplets_que_o, triplets_que_e = [], []
-    imgs_a = []
 
     logger.info(f"Creating Gallery")
     images_ids_b, triplets_rev, images_rev = create_gallery(model, data_db, device)
@@ -222,11 +221,14 @@ def compute_recall(model: ModelCross, data_db: Iterable, device, logger, K = [10
                 key=z_iA,
                 value=z_iA,
                 key_padding_mask=z_iA_msk)
-            
-            # imgs_a.append(z_iA[:,0])
 
-            revO = faiss_retrieval_controller(z_o[:,0][0].unsqueeze(0), triplets_rev, images_ids_b)
-            revE = faiss_retrieval_controller(ge[:,0][0].unsqueeze(0), images_rev, images_ids_b)
+            z_o = model.models.proj(z_o[:, 0])
+            ge = model.models.proj(ge[:, 0])
+
+            # print(z_o.size(), ge.size())
+
+            revO = faiss_retrieval_controller(z_o[0].unsqueeze(0), triplets_rev, images_ids_b)
+            revE = faiss_retrieval_controller(ge[0].unsqueeze(0), images_rev, images_ids_b)
             # print(image_id_a[0], image_id_b[0])
             for k in K:
                 if(image_id_b[0] in revO[:k]):

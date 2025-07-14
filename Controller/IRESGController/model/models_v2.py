@@ -18,7 +18,12 @@ class CEAtt(nn.Module):
         self.attn_graph_e = nn.MultiheadAttention(hidden_dim, nhead, dropout, batch_first=True)
         self.attn_graph_be = nn.MultiheadAttention(hidden_dim, nhead, dropout, batch_first=True)
 
-    
+        proj_dim = hidden_dim
+        self.proj = nn.Sequential(
+            nn.Linear(hidden_dim, proj_dim),
+            nn.ReLU(),
+            nn.Linear(proj_dim, proj_dim)
+        )
 
     def graph2im(self, z_iA, z_iA_msk, zt_o):
         z_o, _ = self.attn_graph_o(
@@ -69,8 +74,7 @@ class CEAtt(nn.Module):
         zt_e, zt_e_mask = self.graph_encoder_e(tgt_e)
 
         # Ask; Graph, Answer: Image -> graph2im
-        # trường hợp 
-        z_o = self.graph2im(self, z_iA, z_iA_msk, zt_o)
+        z_o = self.graph2im(z_iA, z_iA_msk, zt_o)
         # z_eB_g2i = self.graph2imB(self,  z_iB, z_iB_msk, zt_e)
 
         # Ask; Image, Answer: Graph -> im2graph
@@ -83,8 +87,15 @@ class CEAtt(nn.Module):
             key_padding_mask=zt_e_mask  # mask cho triplet
         )
 
+        # Apply Projection embedding on [CLS] embedding  
+        z_iA = self.proj(z_iA[:, 0])
+        z_iB = self.proj(z_iB[:, 0])
+        zt_e = self.proj(zt_e[:, 0])
+        z_o = self.proj(z_o[:, 0])
+        z_eB_i2g = self.proj(z_eB_i2g[:, 0])
+
         # Extract cls token from embedding 
-        return  z_iA[:,0], z_iB[:,0], zt_e[:,0], z_o[:,0], z_eB_i2g[:,0]  #, z_e[:,0]
+        return  z_iA, z_iB, zt_e, z_o, z_eB_i2g
     
 def build_model(hidden_dim,lr_backbone,masks, backbone, dilation, 
                 nhead, nlayer, d_ffn, dropout, random_erasing_prob, activation, pre_train):

@@ -6,7 +6,7 @@ log_dir = os.path.join(os.getcwd(), 'Controller/IRESGController/work_dir')
 save_ckpt = os.path.join(os.getcwd(), 'Checkpoint', 'IRESG')
 
 # Dataset
-num_workers = 4
+num_workers = 0
 batch_size = 30
 max_lenght = 10
 max_triplet = 10

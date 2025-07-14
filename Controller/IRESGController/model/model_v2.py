@@ -19,18 +19,33 @@ class ModelCross(nn.Module):
         return z_iA, z_iB, zt_e, z_o, z_eB_i2g
 
 class Criterion(nn.Module):
-    def __init__(self, temperature=0.03, alpha=1.0):
+    def __init__(self, temperature=0.07, alpha=1.0, margin=0.2):
         super().__init__()
         self.temperature = temperature
         self.alpha = alpha  # trọng số cho consistency loss
+        self.margin = margin
 
     def info_nce_loss(self, z_o, z_iB):
+        
         z_o = F.normalize(z_o, dim=1)
         z_iB = F.normalize(z_iB, dim=1)
-        sim_matrix = torch.mm(z_o, z_iB.t()) / self.temperature
-        labels = torch.arange(sim_matrix.size(0), device=sim_matrix.device)
-        loss_i2j = F.cross_entropy(sim_matrix, labels)
-        loss_j2i = F.cross_entropy(sim_matrix.T, labels)
+        
+        sim_matrix = torch.mm(z_o, z_iB.t()) #/ self.temperature
+        batch_size = sim_matrix.size(0)
+        labels = torch.arange(batch_size, device=sim_matrix.device)
+
+        # Positive similarities: diagonal elements
+        pos_sim = sim_matrix[range(batch_size), labels].unsqueeze(1)  # [B, 1]
+
+        # Shift negatives by margin
+        margin_matrix = pos_sim - self.margin  # [B, 1]
+        logits = sim_matrix - margin_matrix  # broadcast over rows
+
+        # Apply temperature
+        logits /= self.temperature
+
+        loss_i2j = F.cross_entropy(logits, labels)
+        loss_j2i = F.cross_entropy(logits.T, labels)
         return (loss_i2j + loss_j2i) / 2
     
     def cosine_sim_loss(self, z_i, z_cross):
@@ -53,7 +68,7 @@ class Criterion(nn.Module):
         cosine_sim_e = self.cosine_sim_loss(zt_e, z_eB_i2g)
         # cosine_sim_be = self.cosine_sim_loss(z_be, z_e)
 
-        cosine = (cosine_sim_o + cosine_sim_e + cosine_sim_e) / 3
+        cosine = (cosine_sim_o + cosine_sim_e) / 2
         # info_nce = (info_nce_oeB + info_nce_eeB) / 2
 
         total = info_nce_o + self.alpha*cosine

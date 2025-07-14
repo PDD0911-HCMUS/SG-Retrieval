@@ -136,7 +136,7 @@ if __name__ == "__main__":
         lr_scheduler.step(losses_valid)
         lr_scheduler.step()
 
-        break
+        # break
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
