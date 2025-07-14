@@ -1,0 +1,29 @@
+version: "3.8"
+
+services:
+  phamd_dev:
+    image: phamd_image
+    container_name: phamd_dev_v1
+    hostname: phamd_dev_v1
+    shm_size: '32gb' 
+    volumes:
+      - /radish/phamd/duypd-proj/SG-Retrieval:/workspace
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    ports:
+      - 8009:80
+    # networks:
+    #   - localhost
+    stdin_open: true
+    tty: true

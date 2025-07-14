@@ -15,6 +15,7 @@ from typing import Optional, List
 import torch
 import torch.distributed as dist
 from torch import Tensor
+import logging
 
 # needed due to empty tensor bug in pytorch and torchvision 0.5
 import torchvision
@@ -464,3 +465,37 @@ def interpolate(input, size=None, scale_factor=None, mode="nearest", align_corne
         return _new_empty_tensor(input, output_shape)
     else:
         return torchvision.ops.misc.interpolate(input, size, scale_factor, mode, align_corners)
+    
+
+def setup_logger(log_dir):
+
+    os.makedirs(log_dir, exist_ok=True)
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    log_file = f"LOGGER_{timestamp}.log"
+    log_path = os.path.join(log_dir, log_file)
+    
+    logger = logging.getLogger("train_logger")
+    logger.setLevel(logging.INFO)
+    
+    # Delete old handlers if any (avoid log duplication)
+    if logger.hasHandlers():
+        logger.handlers.clear()
+    
+    # Console handler (displayed on terminal)
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+
+    # File handler (write to file)
+    file_handler = logging.FileHandler(log_path)
+    file_handler.setLevel(logging.INFO)
+
+    # Log format
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    console_handler.setFormatter(formatter)
+    file_handler.setFormatter(formatter)
+
+    # Add handlers to logger
+    logger.addHandler(console_handler)
+    logger.addHandler(file_handler)
+    
+    return logger
