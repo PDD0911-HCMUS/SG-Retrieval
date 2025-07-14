@@ -18,52 +18,13 @@ class CEAtt(nn.Module):
         self.attn_graph_e = nn.MultiheadAttention(hidden_dim, nhead, dropout, batch_first=True)
         self.attn_graph_be = nn.MultiheadAttention(hidden_dim, nhead, dropout, batch_first=True)
 
+        # Add projection layers to align the same space vector embedding.
         proj_dim = hidden_dim
         self.proj = nn.Sequential(
             nn.Linear(hidden_dim, proj_dim),
             nn.ReLU(),
             nn.Linear(proj_dim, proj_dim)
         )
-
-    def graph2im(self, z_iA, z_iA_msk, zt_o):
-        z_o, _ = self.attn_graph_o(
-            query=zt_o,
-            key=z_iA,
-            value=z_iA,
-            key_padding_mask=z_iA_msk  # mask cho vision
-        )
-
-        return z_o
-
-    def im2graph(self, z_iA, zt_e, zt_e_mask):
-
-        z_e, _ = self.attn_graph_e(
-            query=z_iA,
-            key=zt_e,
-            value=zt_e,
-            key_padding_mask=zt_e_mask  # mask cho triplet
-        )
-
-        return z_e
-    
-    def graph2imB(self, z_iB, z_iB_msk, zt_e):
-        z_eB, _ = self.attn_graph_be(
-            query=zt_e,
-            key=z_iB,
-            value=z_iB,
-            key_padding_mask=z_iB_msk  # mask cho vision
-        )
-
-        return z_eB
-    
-    def im2graphB(self, z_iB, zt_e, zt_e_mask):
-        z_eB, _ = self.attn_graph_be(
-            query=z_iB,
-            key=zt_e,
-            value=zt_e,
-            key_padding_mask=zt_e_mask  # mask cho triplet
-        )
-        return z_eB
     
     def forward(self, img_a: NestedTensor, img_b: NestedTensor, tgt_o, tgt_e):
 
@@ -74,12 +35,14 @@ class CEAtt(nn.Module):
         zt_e, zt_e_mask = self.graph_encoder_e(tgt_e)
 
         # Ask; Graph, Answer: Image -> graph2im
-        z_o = self.graph2im(z_iA, z_iA_msk, zt_o)
-        # z_eB_g2i = self.graph2imB(self,  z_iB, z_iB_msk, zt_e)
+        z_o, _ = self.attn_graph_o(
+            query=zt_o,
+            key=z_iA,
+            value=z_iA,
+            key_padding_mask=z_iA_msk  # mask cho vision
+        )
 
         # Ask; Image, Answer: Graph -> im2graph
-        # z_e = self.im2graph(self, z_iA, zt_e, zt_e_mask)
-        # z_eB_i2g = self.im2graphB(self, z_iB, zt_e, zt_e_mask)
         z_eB_i2g, _ = self.attn_graph_be(
             query=z_iB,
             key=zt_e,

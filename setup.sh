@@ -7,3 +7,5 @@ echo $PYTHONPATH
 
 #Run API
 # python3 app.py
+
+CUDA_VISIBLE_DEVICES=0, python3 Controller/IRESGController/train.py 
