@@ -15,8 +15,7 @@ def train_engine(model: ModelCross, criterion: torch.nn.Module,
     criterion.train()
 
     total_loss = 0.0
-    total_info_nce = 0.0
-    total_cosine_sim = 0.0
+    total_sim = 0.0
     num_batches = len(data_loader)
 
     start_time = time.time()
@@ -27,11 +26,9 @@ def train_engine(model: ModelCross, criterion: torch.nn.Module,
         im_b = im_b.to(device)
         trip_que = [{k: v.to(device) for k, v in t.items()} for t in trip_que]
         trip_rev = [{k: v.to(device) for k, v in t.items()} for t in trip_rev]
-
-        # print(trip_que)
         
-        z_iA, z_iB, zt_e, z_o, z_eB_i2g = model(im_a,im_b,trip_que,trip_rev)
-        losses = criterion(z_iA, z_iB, zt_e, z_o, z_eB_i2g)
+        z_iA, z_iB, zt_e, z_o = model(im_a,im_b,trip_que,trip_rev)
+        losses = criterion(z_iA, z_iB, zt_e, z_o)
 
         optimizer.zero_grad()
         losses['loss'].backward()
@@ -42,8 +39,8 @@ def train_engine(model: ModelCross, criterion: torch.nn.Module,
         optimizer.step()
 
         total_loss += losses['loss'].item()
-        total_info_nce += losses['info_nce'].item()
-        total_cosine_sim += losses['cosine_sim'].item()
+
+        total_sim += losses['sim'].item()
 
         # ETA
         batch_time = time.time() - batch_start_time
@@ -51,28 +48,23 @@ def train_engine(model: ModelCross, criterion: torch.nn.Module,
         estimated_total_time = (elapsed_time / batch_idx) * num_batches
         eta = estimated_total_time - elapsed_time
 
-        elem_info_nce = [f"{x.item():.5f}" for x in losses['elem_info_nce']]
-        elem_cosine_sim = [f"{y.item():.5f}" for y in losses['elem_cosine_sim']]
+        elem_sim = [f"{y.item():.5f}" for y in losses['elem_sim']]
         if batch_idx % log_interval == 0 or batch_idx == num_batches:
             logger.info(
                 f"Epoch {epoch} - Iter {batch_idx}/{num_batches} "
                 f"- Time per batch: {batch_time:.2f}s "
                 f"- ETA: {eta/60:.1f} min "
-                f"- elem_info_nce = {elem_info_nce} "
-                f"- elem_cosine_sim = {elem_cosine_sim} "
-                f"- info_nce = {losses['info_nce'].item():.5f} "
-                f"- cosine_sim = {losses['cosine_sim'].item():.5f} "
+                f"- elem_sim = {elem_sim} "
+                f"- sim = {losses['sim'].item():.5f} "
                 f"- Loss = {losses['loss'].item():.5f} "
             )
 
             # break
 
     avg_loss = total_loss / num_batches if num_batches > 0 else 0
-    avg_info_nce = total_info_nce / num_batches if num_batches > 0 else 0
-    avg_cosine_sim = total_cosine_sim / num_batches if num_batches > 0 else 0
+    avg_sim = total_sim / num_batches if num_batches > 0 else 0
     logger.info(f"Epoch {epoch} - Average Training Loss: {avg_loss:.5f} "
-                f"- info_nce: {avg_info_nce:.5f} "
-                f"- cosine_sim: {avg_cosine_sim:.5f}")
+                f"- sim: {avg_sim:.5f}")
         
     return avg_loss
 
@@ -84,8 +76,8 @@ def valid_engine(model: ModelCross, criterion: torch.nn.Module,
     criterion.eval()
 
     total_loss = 0.0
-    total_info_nce = 0.0
-    total_cosine_sim = 0.0
+
+    total_sim = 0.0
     num_batches = len(data_loader)
 
     start_time = time.time()
@@ -97,12 +89,12 @@ def valid_engine(model: ModelCross, criterion: torch.nn.Module,
             trip_que = [{k: v.to(device) for k, v in t.items()} for t in trip_que]
             trip_rev = [{k: v.to(device) for k, v in t.items()} for t in trip_rev]
 
-            z_iA, z_iB, zt_e, z_o, z_eB_i2g = model(im_a,im_b,trip_que,trip_rev)
-            losses = criterion(z_iA, z_iB, zt_e, z_o, z_eB_i2g)
+            z_iA, z_iB, zt_e, z_o = model(im_a,im_b,trip_que,trip_rev)
+            losses = criterion(z_iA, z_iB, zt_e, z_o)
             
             total_loss += losses['loss'].item()        
-            total_info_nce += losses['info_nce'].item()
-            total_cosine_sim += losses['cosine_sim'].item()
+
+            total_sim += losses['sim'].item()
 
             # ETA
             batch_time = time.time() - batch_start_time
@@ -110,17 +102,14 @@ def valid_engine(model: ModelCross, criterion: torch.nn.Module,
             estimated_total_time = (elapsed_time / batch_idx) * num_batches
             eta = estimated_total_time - elapsed_time
 
-            elem_info_nce = [f"{x.item():.5f}" for x in losses['elem_info_nce']]
-            elem_cosine_sim = [f"{y.item():.5f}" for y in losses['elem_cosine_sim']]
+            elem_sim = [f"{y.item():.5f}" for y in losses['elem_sim']]
             if batch_idx % log_interval == 0 or batch_idx == num_batches:
                 logger.info(
                     f"Epoch (val) {epoch} - Iter {batch_idx}/{num_batches} "
                     f"- Time per batch: {batch_time:.2f}s "
                     f"- ETA: {eta/60:.1f} min "
-                    f"- elem_info_nce = {elem_info_nce} "
-                    f"- elem_cosine_sim = {elem_cosine_sim} "
-                    f"- info_nce = {losses['info_nce'].item():.5f} "
-                    f"- cosine_sim = {losses['cosine_sim'].item():.5f} "
+                    f"- elem_sim = {elem_sim} "
+                    f"- sim = {losses['sim'].item():.5f} "
                     f"- Loss = {losses['loss'].item():.5f} "
                 )
 
@@ -128,12 +117,10 @@ def valid_engine(model: ModelCross, criterion: torch.nn.Module,
         
         
         avg_loss = total_loss / num_batches if num_batches > 0 else 0
-        avg_info_nce = total_info_nce / num_batches if num_batches > 0 else 0
-        avg_cosine_sim = total_cosine_sim / num_batches if num_batches > 0 else 0
+        avg_sim = total_sim / num_batches if num_batches > 0 else 0
         logger.info(
             f"Epoch {epoch} - Validation Loss: {avg_loss:.5f} "
-            f"- info_nce: {avg_info_nce:.5f} "
-            f"- cosine_sim: {avg_cosine_sim:.5f}"
+            f"- sim: {avg_sim:.5f}"
         )
 
         #Compute mean Recall
@@ -156,7 +143,6 @@ def faiss_retrieval_controller(z_que, set_z_rev, images_id_rev):
 
 def create_gallery(model: ModelCross, data_db: Iterable, device):
     images_ids_b = []
-    triplets_rev = []
     images_rev = []
     # imgs_b = []
     with torch.no_grad():
@@ -165,39 +151,23 @@ def create_gallery(model: ModelCross, data_db: Iterable, device):
             images_ids_b.append(image_id_b[0])
 
             img_b = img_b[0].to(device)
-            trip_rev = [{k: v.to(device) for k, v in t.items()} for t in trip_rev]
-            z_iB, z_iB_msk, _ = model.models.vision_encoder(img_b)
 
-            zt_e, zt_e_mask = model.models.graph_encoder_e(trip_rev)
+            z_iB, z_iB_msk, _ = model.models.vision_encoder(img_b)
             
-            z_eb, _ = model.models.attn_graph_be(
-                query=z_iB,
-                key=zt_e,
-                value=zt_e,
-                key_padding_mask=zt_e_mask
-            )
-            z_eb = model.models.proj(z_eb[:,0])
             z_iB = model.models.proj(z_iB[:,0])
-            z_eb = F.normalize(z_eb, p=2, dim=1)
+
             z_iB = F.normalize(z_iB, p=2, dim=1)
 
-            triplets_rev.append(z_eb[0])
             images_rev.append(z_iB[0])
 
-        return images_ids_b, triplets_rev, images_rev
+        return images_ids_b, images_rev
 
 def compute_recall(model: ModelCross, data_db: Iterable, device, logger, K = [10, 20, 50]):
 
-    '''
-    # image_ids_a, images_id_b: list of image_name que and rev
-    # triplets_que, triplets_rev: list of triplet que and rev
-    '''
-
     image_ids_a = []
-    # triplets_que_o, triplets_que_e = [], []
 
     logger.info(f"Creating Gallery")
-    images_ids_b, triplets_rev, images_rev = create_gallery(model, data_db, device)
+    images_ids_b, images_rev = create_gallery(model, data_db, device)
 
     hits_o = defaultdict(int)
     hits_e = defaultdict(int)
@@ -225,10 +195,8 @@ def compute_recall(model: ModelCross, data_db: Iterable, device, logger, K = [10
             z_o = model.models.proj(z_o[:, 0])
             ge = model.models.proj(ge[:, 0])
 
-            # print(z_o.size(), ge.size())
-
-            revO = faiss_retrieval_controller(z_o[0].unsqueeze(0), triplets_rev, images_ids_b)
-            revE = faiss_retrieval_controller(ge[0].unsqueeze(0), images_rev, images_ids_b)
+            revO = faiss_retrieval_controller(z_o, images_rev, images_ids_b)
+            revE = faiss_retrieval_controller(ge, images_rev, images_ids_b)
             # print(image_id_a[0], image_id_b[0])
             for k in K:
                 if(image_id_b[0] in revO[:k]):
