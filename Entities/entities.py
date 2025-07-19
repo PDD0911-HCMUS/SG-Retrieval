@@ -1,7 +1,9 @@
 from typing import Optional
 
-from sqlalchemy import ARRAY, BigInteger, Column, Double, Identity, Integer, PrimaryKeyConstraint, Table, Text
+from sqlalchemy import ARRAY, BigInteger, Boolean, Column, Date, Double, Identity, Integer, PrimaryKeyConstraint, Table, Text, Uuid
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+import datetime
+import uuid
 
 class Base(DeclarativeBase):
     pass
@@ -144,6 +146,24 @@ class Image2GraphEmbeddingV2MSCOCO(Base):
     ID: Mapped[int] = mapped_column(BigInteger, Identity(always=True, start=1, increment=1, minvalue=1, maxvalue=9223372036854775807, cycle=False, cache=1), primary_key=True)
     image_name: Mapped[Optional[str]] = mapped_column(Text)
     triplets: Mapped[Optional[str]] = mapped_column(Text)
+
+
+class Pages(Base):
+    __tablename__ = 'Pages'
+    __table_args__ = (
+        PrimaryKeyConstraint('ID', name='Pages_pkey'),
+    )
+
+    ID: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    PageName: Mapped[Optional[str]] = mapped_column(Text)
+    PageURL: Mapped[Optional[str]] = mapped_column(Text)
+    PageLogo: Mapped[Optional[str]] = mapped_column(Text)
+    RoleID: Mapped[Optional[list]] = mapped_column(ARRAY(Integer()))
+    Activate: Mapped[Optional[bool]] = mapped_column(Boolean)
+    Delete: Mapped[Optional[bool]] = mapped_column(Boolean)
+    CreateAt: Mapped[Optional[datetime.date]] = mapped_column(Date)
+    UpdateAt: Mapped[Optional[datetime.date]] = mapped_column(Date)
+    DeleteAt: Mapped[Optional[datetime.date]] = mapped_column(Date)
 
 
 class TestTable(Base):

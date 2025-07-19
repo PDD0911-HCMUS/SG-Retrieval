@@ -15,7 +15,7 @@ class ConfigDB:
     DATABASE = "RetrievalSystemTraffic"
     USERNAME = "postgres"
     PASSWORD = "123456"
-    PORT = 5432
+    PORT = 5433
     SQLALCHEMY_DATABASE_URI = f"postgresql://{USERNAME}:{PASSWORD}@{HOSTNAME}:{PORT}/{DATABASE}"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
