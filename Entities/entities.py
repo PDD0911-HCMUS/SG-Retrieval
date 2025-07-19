@@ -100,6 +100,18 @@ class IRESGVG(Base):
     cross_embedding: Mapped[Optional[list]] = mapped_column(ARRAY(Double(precision=53)))
 
 
+class IRESGVGV2(Base):
+    __tablename__ = 'IRESG_VG_V2'
+    __table_args__ = (
+        PrimaryKeyConstraint('ID', name='IRESG_VG_V2_pkey'),
+    )
+
+    ID: Mapped[int] = mapped_column(BigInteger, Identity(always=True, start=1, increment=1, minvalue=1, maxvalue=9223372036854775807, cycle=False, cache=1), primary_key=True)
+    image_id: Mapped[Optional[str]] = mapped_column(Text)
+    embedding: Mapped[Optional[list]] = mapped_column(ARRAY(Double(precision=53)))
+    triplets: Mapped[Optional[str]] = mapped_column(Text)
+
+
 class Image2GraphEmbedding(Base):
     __tablename__ = 'Image2GraphEmbedding'
     __table_args__ = (

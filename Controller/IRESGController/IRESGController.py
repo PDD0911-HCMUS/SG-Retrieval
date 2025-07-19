@@ -5,9 +5,9 @@ from sqlalchemy.exc import SQLAlchemyError
 import torch
 from pathlib import Path
 import numpy as np
-from Controller.IRESGController.model.model import ModelCross
+from Controller.IRESGController.model.model_v2 import ModelCross
 from torch.utils.data import DataLoader, SequentialSampler
-from Controller.IRESGController.model.model import build, ModelCross
+from Controller.IRESGController.model.model_v2 import build, ModelCross
 from tqdm import tqdm
 import faiss
 import torch.nn.functional as F
@@ -40,6 +40,7 @@ def faiss_retrieval_controller(z_que, set_z_rev, images_id_rev):
     if isinstance(z_que, torch.Tensor):
         z_que = z_que.detach().cpu().numpy().astype('float32')
     set_z_rev = np.stack(set_z_rev).astype('float32')
+    print(set_z_rev.shape)
     index = faiss.IndexFlatIP(set_z_rev.shape[1])  # Dùng Euclidean distance
     index.add(set_z_rev)
     D, I = index.search(z_que, k=50)
@@ -74,6 +75,14 @@ def get_embedding(model: ModelCross, img_id, img, triplet, mode, device):
 
         return img_id[0], z_cross[:,0]
     
+def get_embedding_v2(model: ModelCross, img_id, img, device):
+    with torch.no_grad():
+        img = img[0].to(device)
+
+        z_i, z_i_msk, _ = model.models.vision_encoder(img)
+
+        return img_id[0], z_i[:,0]
+    
 def get_embedding_query(model: ModelCross, img, triplet, mode, device):
     with torch.no_grad():
         img = img.to(device)
@@ -90,19 +99,14 @@ def get_embedding_query(model: ModelCross, img, triplet, mode, device):
                 value=z_i,
                 key_padding_mask=z_i_msk
             )
-            z_cross = F.normalize(z_cross, p=2, dim=1)
+            z_que = F.normalize(z_cross, p=2, dim=1)
         if(mode == 1):
             print("RUN MODE 111111111111111111111")
             z_t, _ = model.models.graph_encoder_e(triplet)
-            # z_cross, _ = model.models.attn_graph_be(
-            #     query=z_t,
-            #     key=z_i,
-            #     value=z_i,
-            #     key_padding_mask=z_i_msk
-            # )
-            z_cross = F.normalize(z_t, p=2, dim=1)
+            z_que = F.normalize(z_t, p=2, dim=1)
 
-        return z_cross[:,0][0], z_i[:,0], z_t[:,0]
+        # return z_cross[:,0][0], z_i[:,0], z_t[:,0]
+        return z_que[:,0][0]
 
 def pad_or_truncate_tensor(item):
     for key in ['trip_ids', 'trip_mask']:
@@ -182,21 +186,23 @@ def create_gallery():
 
     model = get_model()
 
-    IRESGVG = entity.IRESGVG
+    IRESGVGV2 = entity.IRESGVGV2
     try:    
         for img_a, img_b, trip_que, trip_rev, image_id_a, image_id_b in tqdm(data_db):
 
-            im_id_o, z_cross_o = get_embedding(model, image_id_a, img_a, trip_que, 0, device)
-            im_id_e, z_cross_e = get_embedding(model, image_id_b, img_b, trip_rev, 1, device)
+            im_id_o, z_i_o = get_embedding_v2(model, image_id_a, img_a,device)
+            im_id_e, z_i_e = get_embedding_v2(model, image_id_b, img_b,device)
 
-            insert_o = IRESGVG(
+            insert_o = IRESGVGV2(
                 image_id = im_id_o,
-                cross_embedding = z_cross_o.tolist()
+                embedding = z_i_o.tolist(),
+                # triplets = trip_que
             )
 
-            insert_e = IRESGVG(
+            insert_e = IRESGVGV2(
                 image_id = im_id_e,
-                cross_embedding = z_cross_e.tolist()
+                embedding = z_i_e.tolist(),
+                # triplets = trip_rev
             )
 
             db.session.add(insert_o)
@@ -256,28 +262,27 @@ def retrieve():
 
         model = get_model()
 
-        z_cross, z_i, z_t = get_embedding_query(model, img, [trip], edit, device)
-        # if(edit == 1):
-        score = consine_similarity(z_i, z_t, filepath)
-        print(score)
-        z_cross = z_cross.unsqueeze(0)
+        z_que = get_embedding_query(model, img, [trip], edit, device)
+       
+        z_que = z_que.unsqueeze(0)
 
-        IRESGVG = entity.IRESGVG
+        IRESGVGV2 = entity.IRESGVGV2
         image_ids = []
         embeddings = []
         gallery = db.session.query(
-            IRESGVG.image_id,
-            IRESGVG.cross_embedding
+            IRESGVGV2.image_id,
+            IRESGVGV2.embedding
         ).all()
 
         for image_id, embedding in gallery:
             image_ids.append(image_id)
-            embeddings.append(np.array(embedding, dtype=np.float32))
+            embeddings.append(np.array(embedding[0], dtype=np.float32))
 
+        print(z_que.size())
         selected_images = faiss_retrieval_controller(
             images_id_rev=image_ids,
             set_z_rev=embeddings,
-            z_que=z_cross
+            z_que=z_que
         )
 
         res = {
