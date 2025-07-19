@@ -13,3 +13,17 @@ tokenizer = "bert-base-uncased"
 anno_train = args.ConfigData.hybrid_encoder_train
 anno_valid = args.ConfigData.hybrid_encoder_valid
 vg_image_dir = args.ConfigData.img_folder_vg
+
+#Vision Encoder:
+position_embedding='sine'
+backbone='resnet50' # choose resnet50, resnet101, 
+dilation=False
+frozen_weights=None
+lr_backbone=1e-05
+masks=False
+
+#Transformer
+hidden_dim=256
+
+#Hybrid
+num_queries = 100

@@ -1,12 +1,11 @@
 from config_run import *
 from Controller.HybridEncoderRegionDescriptionController.datasets.data import build_data
+from Controller.HybridEncoderRegionDescriptionController.models.hybrid_encoder import build
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, BatchSampler
 import util.misc as utils
 import json
 
 if __name__ == "__main__":
-    with open(anno_train, 'r') as f:
-        train = json.load(f)
 
     dataset_train = build_data(
         image_folder=vg_image_dir,
@@ -30,10 +29,15 @@ if __name__ == "__main__":
                                    collate_fn=utils.collate_fn, num_workers=args.num_workers)
     data_loader_val = DataLoader(dataset_val, args.batch_size, sampler=sampler_val,
                                  drop_last=False, collate_fn=utils.collate_fn, num_workers=args.num_workers)
+    
+    model = build(hidden_dim, lr_backbone,masks, backbone, dilation, num_queries)
+    model = model.to(device)
 
     print(dataset_train.__len__())
     print(dataset_val.__len__())
 
     for img, tgt in data_loader_train:
         print(tgt)
+
+        src = model(img)
         break
