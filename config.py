@@ -28,9 +28,9 @@ class ConfigData:
     img_folder_mscoco_train = os.path.join(root,'MSCOCO/train2017/')
     img_folder_mscoco_valid = os.path.join(root,'MSCOCO/val2017/')
 
-    #For CrossEncoderController
-    cross_encoder_train = os.path.join(root, 'VisualGenome', 'anno_rg/train_data.json')
-    cross_encoder_valid = os.path.join(root, 'VisualGenome', 'anno_rg/val_data.json')
+    #For HybridEncoderRegionDescriptionController
+    hybrid_encoder_train = os.path.join(root, 'VisualGenome', 'anno_rg/train_data.json')
+    hybrid_encoder_valid = os.path.join(root, 'VisualGenome', 'anno_rg/val_data.json')
 
     #For IRESGController
     iresg_train = os.path.join(root, 'VisualGenome', 'anno_iresg/train.json')
