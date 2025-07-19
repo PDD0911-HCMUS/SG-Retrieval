@@ -2,22 +2,52 @@ from config import db
 from flask_cors import CORS, cross_origin
 from flask import Blueprint, request, jsonify, send_from_directory
 from sqlalchemy.exc import SQLAlchemyError
+import uuid
+import Entities.entities as entity
+from Entities.schemas.pages_schema import PagesSchema
+import traceback
 
-page_api = Blueprint('page', __name__)
+class PageController:
+    def get_all_pages(self):
+        # TODO: Get all pages with permission
+        try:
+            PAGE = entity.Pages
+            data = db.session.query(
+                PAGE.ID,
+                PAGE.PageName,
+                PAGE.PageURL,
+                PAGE.PageLogo,
+                PAGE.Activate
+            ).where(PAGE.Delete==False).all()
 
-@page_api.route("/get_all_pages", methods = ['GET'])
-def get_all_pages():
-    # TODO: Get all pages with permission
-    return
+            data = PagesSchema(many=True).dump(data)
 
-@page_api.route("/update_page", methods = ['POST'])
-def update_page():
-    return
+            return jsonify(
+                Data = data,
+                Status = True, 
+                Msg = "Succesfull"
+            )
+        except Exception as e:
+            data = None
+            msg = traceback.format_exc()
+            status = False
+            return jsonify(
+                Data = data,
+                Msg = msg,
+                Status = status
+            )
+    def update_page(self):
+        return
 
-@page_api.route("/insert_page", methods = ['POST'])
-def insert_page():
-    return
+    def insert_page(self):
+        return
 
-@page_api.route("/delete_page", methods = ['POST'])
-def delete_page():
-    return
+    def delete_page(self):
+        return
+    
+    def check_api(self):
+        return jsonify(
+            Data = None,
+            Status = False, 
+            Msg = "Done"
+        )
