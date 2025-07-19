@@ -180,10 +180,16 @@ class TestTable(Base):
 class User(Base):
     __tablename__ = 'User'
     __table_args__ = (
-        PrimaryKeyConstraint('id', name='User_pkey'),
+        PrimaryKeyConstraint('ID', name='User_pkey'),
     )
 
-    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True, start=1, increment=1, minvalue=1, maxvalue=9223372036854775807, cycle=False, cache=1), primary_key=True)
-    user_name: Mapped[Optional[str]] = mapped_column(Text)
-    password: Mapped[Optional[str]] = mapped_column(Text)
-    full_name: Mapped[Optional[str]] = mapped_column(Text)
+    ID: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    Username: Mapped[Optional[str]] = mapped_column(Text)
+    Password: Mapped[Optional[str]] = mapped_column(Text)
+    RoleID: Mapped[Optional[list]] = mapped_column(ARRAY(Integer()))
+    Fullname: Mapped[Optional[str]] = mapped_column(Text)
+    CreateAt: Mapped[Optional[datetime.date]] = mapped_column(Date)
+    UpdateAt: Mapped[Optional[datetime.date]] = mapped_column(Date)
+    Activate: Mapped[Optional[bool]] = mapped_column(Boolean)
+    Delete: Mapped[Optional[bool]] = mapped_column(Boolean)
+    DeleteAt: Mapped[Optional[datetime.date]] = mapped_column(Date)
