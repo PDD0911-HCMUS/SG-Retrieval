@@ -1,6 +1,7 @@
 from Controller.RelTRSGGController.RelTRController import sgg_api
 from Controller.IRESGCLController.IRESGCLController import rev_api
 from Controller.IRESGController.IRESGController import rev_v2_api
+from Controller.PageController import page_api
 from flask import Flask
 from flask_cors import CORS
 from config import ConfigDB, db, ConfigApp
@@ -16,6 +17,7 @@ db.init_app(app)
 app.register_blueprint(sgg_api, url_prefix='/sgg')
 app.register_blueprint(rev_api, url_prefix='/rev')
 app.register_blueprint(rev_v2_api, url_prefix='/rev_v2')
+app.register_blueprint(page_api, url_prefix='/page')
 
 
 if __name__ == "__main__":
