@@ -22,8 +22,18 @@ frozen_weights=None
 lr_backbone=1e-05
 masks=False
 
-#Transformer
+#Transformer:
 hidden_dim=256
+nhead=8
+nlayer=6
+d_ffn=2048
+dropout=0.1
+activation="relu"
+return_intermediate_dec=True
+pre_norm=False
 
 #Hybrid
 num_queries = 100
+
+set_cost_bbox = 5
+set_cost_giou = 2

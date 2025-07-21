@@ -118,7 +118,7 @@ class TransformerDecoder(nn.Module):
         if self.return_intermediate:
             return torch.stack(intermediate), torch.stack(intermediate_maps)
 
-        return output.unsqueeze(0)
+        # return output.unsqueeze(0)
 
 
 class TransformerEncoderLayer(nn.Module):
@@ -212,16 +212,17 @@ def _get_clones(module, N):
     return nn.ModuleList([copy.deepcopy(module) for i in range(N)])
 
 
-def build_transformer(args):
+def build_transformer(hidden_dim, dropout, nhead, d_ffn, nlayer, activation, pre_norm, return_intermediate_dec):
     return Transformer(
-        d_model=args.hidden_dim,
-        dropout=args.dropout,
-        nhead=args.nheads,
-        dim_feedforward=args.dim_feedforward,
-        num_encoder_layers=args.enc_layers,
-        num_decoder_layers=args.dec_layers,
-        normalize_before=args.pre_norm,
-        return_intermediate_dec=True,
+        d_model=hidden_dim,
+        dropout=dropout,
+        nhead=nhead,
+        dim_feedforward=d_ffn,
+        num_encoder_layers=nlayer,
+        num_decoder_layers=nlayer,
+        activation=activation,
+        normalize_before=pre_norm,
+        return_intermediate_dec=return_intermediate_dec,
     )
 
 
