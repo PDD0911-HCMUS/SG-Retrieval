@@ -70,7 +70,7 @@ class HybridEncoder(nn.Module):
         out = {'pred_boxes': outputs_boxes[-1]}
         indices = self.matcher(out, targets)
         batch_idx, query_idx = self._get_src_permutation_idx(indices)
-        region_feat = region_feat[batch_idx, query_idx]  # [sum(N_gt), C]
+        # region_feat = region_feat[batch_idx, query_idx]  # [sum(N_gt), C]
 
         print(indices)
         print(f"Vision Encoder size: {src.size()}")
