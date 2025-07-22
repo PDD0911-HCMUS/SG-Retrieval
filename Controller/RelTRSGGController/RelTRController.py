@@ -46,7 +46,7 @@ def create_model():
                 num_entities=100, num_triplets=200)
 
     # The checkpoint is pretrained on Visual Genome
-    ckpt = torch.load(args.Checkpoint.ckpt_sgg, map_location='cpu')
+    ckpt = torch.load(args.Checkpoint.ckpt_sgg, map_location='cpu', weights_only=False)
     model.load_state_dict(ckpt['model'])
     model.eval()
 

@@ -15,7 +15,7 @@ class ConfigDB:
     DATABASE = "RetrievalSystemTraffic"
     USERNAME = "postgres"
     PASSWORD = "123456"
-    PORT = 5432
+    PORT = 5433 #5432 for Local #5433 for csMachine
     SQLALCHEMY_DATABASE_URI = f"postgresql://{USERNAME}:{PASSWORD}@{HOSTNAME}:{PORT}/{DATABASE}"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
@@ -28,9 +28,9 @@ class ConfigData:
     img_folder_mscoco_train = os.path.join(root,'MSCOCO/train2017/')
     img_folder_mscoco_valid = os.path.join(root,'MSCOCO/val2017/')
 
-    #For CrossEncoderController
-    cross_encoder_train = os.path.join(root, 'VisualGenome', 'anno_rg/train_data.json')
-    cross_encoder_valid = os.path.join(root, 'VisualGenome', 'anno_rg/val_data.json')
+    #For HybridEncoderRegionDescriptionController
+    hybrid_encoder_train = os.path.join(root, 'VisualGenome', 'anno_rg/train_data.json')
+    hybrid_encoder_valid = os.path.join(root, 'VisualGenome', 'anno_rg/val_data.json')
 
     #For IRESGController
     iresg_train = os.path.join(root, 'VisualGenome', 'anno_iresg/train.json')
@@ -43,7 +43,7 @@ class Checkpoint:
     root = os.path.join(pwd,'Checkpoint')
     ckpt_IRESGCL = os.path.join(root,'IRESGCL', 'model_epoch_80.pth')
     ckpt_sgg = os.path.join(root,'RelTR','checkpoint0149reltr.pth')
-    ckpt_IRESG = os.path.join(root,'IRESG', 'epoch_13.pth')
+    ckpt_IRESG = os.path.join(root,'IRESG', 'epoch_39.pth')
 
 batch_size = 12
 num_workers = 0

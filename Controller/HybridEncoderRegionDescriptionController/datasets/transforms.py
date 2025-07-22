@@ -12,10 +12,6 @@ import torchvision.transforms.functional as F
 from util.box_ops import box_xyxy_to_cxcywh
 from util.misc import interpolate
 
-# from QueryControllerV2.util.box_ops import box_xyxy_to_cxcywh
-# from QueryControllerV2.util.misc import interpolate
-
-
 def crop(image, target, region):
     cropped_image = F.crop(image, *region)
 

@@ -13,7 +13,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 @cross_origin()
 def check_db_connection():
     try:
-        conn = psycopg2.connect(args.conn_str)
+        conn = psycopg2.connect(args.ConfigDB.SQLALCHEMY_DATABASE_URI)
         cursor = conn.cursor()
         cursor.execute("SELECT version();")
         record = cursor.fetchone()
