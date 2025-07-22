@@ -37,6 +37,7 @@ class PageController:
                 Status = status
             )
     def update_page(self):
+        
         return
 
     def insert_page(self):
