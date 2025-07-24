@@ -89,10 +89,13 @@ def get_embedding_query(model: ModelCross, img, triplet, mode, device):
         triplet = [{k: v.to(device) for k, v in t.items()} for t in triplet]
 
         z_i, z_i_msk, _ = model.models.vision_encoder(img)
+        z_t, _ = model.models.graph_encoder_o(triplet) 
+
+        consine_similarity(z_i[:,0], z_t[:,0])
 
         if(mode == 0):
             print("RUN MODE 0000000000000000000000")
-            z_t, _ = model.models.graph_encoder_o(triplet) 
+            
             z_cross, _ = model.models.attn_graph_o(
                 query=z_t,
                 key=z_i,
@@ -137,19 +140,20 @@ def create_input(image, triplet):
 
     return img, trip
 
-def consine_similarity(z_i, z_t, filepath):
-    visualize = True
+def consine_similarity(z_i, z_t):
+    visualize = False
     # print(filepath.replace(".jpg","") + "/sim.jpg")
-    filepath = filepath.replace(".jpg","") + "/sim.jpg"
+    filepath = '/Users/duypd/MyPC/MyProject/SG-Retrieval/Datasets/upload' + "/sim.jpg"
     z_i = F.normalize(z_i, p=2, dim=1)
     z_t = F.normalize(z_t, p=2, dim=1)
     score = (z_i * z_t).sum(dim=1)
     score = score.item()
-    print(z_i.shape[1])
+    print(f"======== COSINE SCORE: {score}")
     if visualize:
         # Combine and apply t-SNE
         z_combined = torch.cat([z_i, z_t], dim=0).cpu().numpy()  # shape: [2, 256]
-        z_embedded = TSNE(n_components=2, perplexity=1, n_iter=500, init='random', random_state=42).fit_transform(z_combined)
+
+        z_embedded = TSNE(n_components=2, perplexity=1, init='random', random_state=42, n_iter=500).fit_transform(z_combined)
 
         # Plot
         plt.figure(figsize=(5, 5))
