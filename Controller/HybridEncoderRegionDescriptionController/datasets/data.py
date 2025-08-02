@@ -9,11 +9,12 @@ import Controller.HybridEncoderRegionDescriptionController.datasets.transforms a
 
 class HybridEncodeData(Dataset):
 
-    def __init__(self, anno_file, image_folder, transforms, tokenizer):
+    def __init__(self, anno_file, image_folder, transforms, tokenizer, max_length):
         with open(anno_file, 'r') as f:
             self.data = json.load(f)
         self.image_folder = image_folder
         self.transforms = transforms
+        self.max_length = max_length
         self.tokenizer = BertTokenizer.from_pretrained(tokenizer)
 
     def __getitem__(self, idx: int):
@@ -30,7 +31,7 @@ class HybridEncodeData(Dataset):
         img = Image.open(os.path.join(self.image_folder, im_id)).convert('RGB')
         w, h = img.size
         anno = data['regions']
-        regions = [re['phrase'] for re in anno]
+        regions = [re['phrase'].lower() for re in anno]
 
         boxes = [b['bbox'] for b in anno]
         boxes = torch.as_tensor(boxes, dtype=torch.float32).reshape(-1, 4)
@@ -38,16 +39,33 @@ class HybridEncodeData(Dataset):
         boxes[:, 0::2].clamp_(min=0, max=w)
         boxes[:, 1::2].clamp_(min=0, max=h)
 
+        regions_enc = self.encode_regions(regions)
+
         targets = {
             'image_id': im_id,
             'boxes': boxes,
             'regions': regions,
+            'regions_input_ids': regions_enc['input_ids'],
+            'regions_attention_mask': regions_enc['attention_mask'],
             'orig_size': torch.as_tensor([int(h), int(w)]),
             'size': torch.as_tensor([int(h), int(w)])
         }
 
         return img, targets
     
+    def encode_regions(self, regions: List[str]) -> Dict[str, torch.Tensor]:
+            enc = self.tokenizer(
+                regions,
+                padding='max_length',
+                truncation=True,
+                max_length=self.max_length,
+                return_tensors='pt'
+            )
+            return {
+                'input_ids': enc['input_ids'],         # shape: [num_triplets, max_len]
+                'attention_mask': enc['attention_mask'] # shape: [num_triplets, max_len]
+            }
+
 def make_coco_transforms(image_set):
 
     normalize = T.Compose([
@@ -79,11 +97,12 @@ def make_coco_transforms(image_set):
 
     raise ValueError(f'unknown {image_set}')
 
-def build_data(image_folder, anno_file, tokenizer, image_set):
+def build_data(image_folder, anno_file, tokenizer, max_length, image_set):
     dataset = HybridEncodeData(
         anno_file=anno_file,
         image_folder=image_folder,
         tokenizer=tokenizer,
+        max_length=max_length,
         transforms=make_coco_transforms(image_set)
     )
     return dataset

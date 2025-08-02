@@ -72,7 +72,7 @@ class HybridEncoder(nn.Module):
         batch_idx, query_idx = self._get_src_permutation_idx(indices)
         # region_feat = region_feat[batch_idx, query_idx]  # [sum(N_gt), C]
 
-        print(indices)
+        # print(indices)
         print(f"Vision Encoder size: {src.size()}")
         print(f"Output Memory Transformer size: {memory.size()}")
         print(f"Region Feat size: {region_feat.size()}")

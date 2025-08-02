@@ -11,6 +11,7 @@ if __name__ == "__main__":
         image_folder=vg_image_dir,
         anno_file=anno_train,
         tokenizer=tokenizer,
+        max_length=max_length,
         image_set='train'
     )
 
@@ -18,6 +19,7 @@ if __name__ == "__main__":
         image_folder=vg_image_dir,
         anno_file=anno_valid,
         tokenizer=tokenizer,
+        max_length=max_length,
         image_set='val'
     )
 
@@ -43,6 +45,7 @@ if __name__ == "__main__":
     ignored_keys = {'regions', 'image_id'}
     for samples, targets in data_loader_train:
         print(targets)
+        print(100*'=')
         samples = samples.to(device)
         targets = [{k: v.to(device) for k, v in t.items() if k not in ignored_keys} for t in targets]
         src = model(samples, targets)

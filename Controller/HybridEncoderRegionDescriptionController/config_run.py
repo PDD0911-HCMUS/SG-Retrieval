@@ -8,6 +8,7 @@ save_ckpt = os.path.join(os.getcwd(), 'Checkpoint', 'HybridEncoderRegionDescript
 # Dataset
 num_workers = 0
 batch_size = 2
+max_length = 10
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") 
 tokenizer = "bert-base-uncased"
 anno_train = args.ConfigData.hybrid_encoder_train
