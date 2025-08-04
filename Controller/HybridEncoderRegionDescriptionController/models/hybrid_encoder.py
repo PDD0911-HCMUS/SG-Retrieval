@@ -73,12 +73,13 @@ class HybridEncoder(nn.Module):
         # region_feat = region_feat[batch_idx, query_idx]  # [sum(N_gt), C]
 
         # print(indices)
-        print(f"Vision Encoder size: {src.size()}")
-        print(f"Output Memory Transformer size: {memory.size()}")
-        print(f"Region Feat size: {region_feat.size()}")
-        print(f"Ouput Transformer size: {hs[-1].size()} and {hs.size()}")
-        print(f"Output Maps Transformer size: {maps[-1].size()} and {maps.size()}")
-        print(f"Ouput Boxes size: {outputs_boxes[-1].size()} and {outputs_boxes.size()}")
+        print(f"1.            Vision Encoder size: {src.size()}")
+        print(f"2. Output Memory Transformer size: {memory.size()}")
+        print(f"3.         Ouput Transformer size: {hs[-1].size()} and {hs.size()}")
+        print(f"4.   Output Maps Transformer size: {maps[-1].size()} and {maps.size()}")
+        print(f"5.               Region Feat size: {region_feat.size()}")
+        print(f"6.               Ouput Boxes size: {outputs_boxes[-1].size()} and {outputs_boxes.size()}")
+        
         return src
     
     def _get_src_permutation_idx(self, indices):
