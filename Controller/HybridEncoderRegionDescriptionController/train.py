@@ -45,7 +45,7 @@ if __name__ == "__main__":
     ignored_keys = {'regions', 'image_id'}
     for samples, targets in data_loader_train:
         print(targets)
-        print(100*'=')
+        print(110*'=')
         samples = samples.to(device)
         targets = [{k: v.to(device) for k, v in t.items() if k not in ignored_keys} for t in targets]
         src = model(samples, targets)
