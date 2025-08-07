@@ -26,7 +26,7 @@ def save_checkpoint(model: torch.nn.Module,
                     save_dir):
     
     os.makedirs(save_dir, exist_ok=True)
-    save_path = os.path.join(save_dir, f"epoch_{epoch}.pth")
+    save_path = os.path.join(save_dir, f"epoch_{epoch}_mscoco.pth")
     checkpoint = {
         "epoch": epoch,
         "model_state_dict": model.state_dict(),
