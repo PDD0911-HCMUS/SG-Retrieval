@@ -1,7 +1,9 @@
 from typing import Optional
 
-from sqlalchemy import ARRAY, BigInteger, Column, Double, Identity, Integer, PrimaryKeyConstraint, Table, Text
+from sqlalchemy import ARRAY, BigInteger, Boolean, Column, Date, Double, Identity, Integer, PrimaryKeyConstraint, Table, Text, Uuid
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+import datetime
+import uuid
 
 class Base(DeclarativeBase):
     pass
@@ -100,6 +102,18 @@ class IRESGVG(Base):
     cross_embedding: Mapped[Optional[list]] = mapped_column(ARRAY(Double(precision=53)))
 
 
+class IRESGVGV2(Base):
+    __tablename__ = 'IRESG_VG_V2'
+    __table_args__ = (
+        PrimaryKeyConstraint('ID', name='IRESG_VG_V2_pkey'),
+    )
+
+    ID: Mapped[int] = mapped_column(BigInteger, Identity(always=True, start=1, increment=1, minvalue=1, maxvalue=9223372036854775807, cycle=False, cache=1), primary_key=True)
+    image_id: Mapped[Optional[str]] = mapped_column(Text)
+    embedding: Mapped[Optional[list]] = mapped_column(ARRAY(Double(precision=53)))
+    triplets: Mapped[Optional[str]] = mapped_column(Text)
+
+
 class Image2GraphEmbedding(Base):
     __tablename__ = 'Image2GraphEmbedding'
     __table_args__ = (
@@ -134,6 +148,24 @@ class Image2GraphEmbeddingV2MSCOCO(Base):
     triplets: Mapped[Optional[str]] = mapped_column(Text)
 
 
+class Pages(Base):
+    __tablename__ = 'Pages'
+    __table_args__ = (
+        PrimaryKeyConstraint('ID', name='Pages_pkey'),
+    )
+
+    ID: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    PageName: Mapped[Optional[str]] = mapped_column(Text)
+    PageURL: Mapped[Optional[str]] = mapped_column(Text)
+    PageLogo: Mapped[Optional[str]] = mapped_column(Text)
+    RoleID: Mapped[Optional[list]] = mapped_column(ARRAY(Integer()))
+    Activate: Mapped[Optional[bool]] = mapped_column(Boolean)
+    Delete: Mapped[Optional[bool]] = mapped_column(Boolean)
+    CreateAt: Mapped[Optional[datetime.date]] = mapped_column(Date)
+    UpdateAt: Mapped[Optional[datetime.date]] = mapped_column(Date)
+    DeleteAt: Mapped[Optional[datetime.date]] = mapped_column(Date)
+
+
 class TestTable(Base):
     __tablename__ = 'TestTable'
     __table_args__ = (
@@ -148,10 +180,16 @@ class TestTable(Base):
 class User(Base):
     __tablename__ = 'User'
     __table_args__ = (
-        PrimaryKeyConstraint('id', name='User_pkey'),
+        PrimaryKeyConstraint('ID', name='User_pkey'),
     )
 
-    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True, start=1, increment=1, minvalue=1, maxvalue=9223372036854775807, cycle=False, cache=1), primary_key=True)
-    user_name: Mapped[Optional[str]] = mapped_column(Text)
-    password: Mapped[Optional[str]] = mapped_column(Text)
-    full_name: Mapped[Optional[str]] = mapped_column(Text)
+    ID: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    Username: Mapped[Optional[str]] = mapped_column(Text)
+    Password: Mapped[Optional[str]] = mapped_column(Text)
+    RoleID: Mapped[Optional[list]] = mapped_column(ARRAY(Integer()))
+    Fullname: Mapped[Optional[str]] = mapped_column(Text)
+    CreateAt: Mapped[Optional[datetime.date]] = mapped_column(Date)
+    UpdateAt: Mapped[Optional[datetime.date]] = mapped_column(Date)
+    Activate: Mapped[Optional[bool]] = mapped_column(Boolean)
+    Delete: Mapped[Optional[bool]] = mapped_column(Boolean)
+    DeleteAt: Mapped[Optional[datetime.date]] = mapped_column(Date)

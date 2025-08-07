@@ -124,7 +124,7 @@ def valid_engine(model: ModelCross, criterion: torch.nn.Module,
         )
 
         #Compute mean Recall
-        compute_recall(model, data_db, device, logger)
+        compute_top_accuracy(model, data_db, device, logger)
         
     return avg_loss
 
@@ -162,7 +162,7 @@ def create_gallery(model: ModelCross, data_db: Iterable, device):
 
         return images_ids_b, images_rev
 
-def compute_recall(model: ModelCross, data_db: Iterable, device, logger, K = [10, 20, 50]):
+def compute_top_accuracy(model: ModelCross, data_db: Iterable, device, logger, K = [10, 20, 50]):
 
     image_ids_a = []
 
@@ -206,12 +206,12 @@ def compute_recall(model: ModelCross, data_db: Iterable, device, logger, K = [10
 
             # break
 
-        recall_o = {k: hits_o[k] / len(data_db) for k in K}
-        recall_e = {k: hits_e[k] / len(data_db) for k in K}
+        Acc_o = {k: hits_o[k] / len(data_db) for k in K}
+        Acc_e = {k: hits_e[k] / len(data_db) for k in K}
         # print("Recall@K for z_o:", recall_o)
         # print("Recall@K for z_e:", recall_e)
         logger.info(f"========== Recall for non-Editted and Editted ==========")
-        logger.info(f"non-Editted | R@10: {recall_o[10]:.5f} | R@20: {recall_o[20]:.5f} | R@50: {recall_o[50]:.5f}")
-        logger.info(f"Editted     | R@10: {recall_e[10]:.5f} | R@20: {recall_e[20]:.5f} | R@50: {recall_e[50]:.5f}")
+        logger.info(f"non-Editted | Acc@10: {Acc_o[10]:.5f} | Acc@20: {Acc_o[20]:.5f} | Acc@50: {Acc_o[50]:.5f}")
+        logger.info(f"Editted     | Acc@10: {Acc_e[10]:.5f} | Acc@20: {Acc_e[20]:.5f} | Acc@50: {Acc_e[50]:.5f}")
 
     return 
