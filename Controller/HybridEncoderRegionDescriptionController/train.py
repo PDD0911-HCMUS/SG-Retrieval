@@ -39,8 +39,8 @@ if __name__ == "__main__":
           )
     model = model.to(device)
 
-    print(dataset_train.__len__())
-    print(dataset_val.__len__())
+    print(f"dataset_train: {dataset_train.__len__()}")
+    print(f"dataset_val: {dataset_val.__len__()}")
 
     ignored_keys = {'regions', 'image_id'}
     for samples, targets in data_loader_train:

@@ -68,11 +68,14 @@ class HybridEncoder(nn.Module):
         outputs_boxes= self.bbox_embed(hs).sigmoid()
 
         out = {'pred_boxes': outputs_boxes[-1]}
+
         indices = self.matcher(out, targets)
         batch_idx, query_idx = self._get_src_permutation_idx(indices)
         # region_feat = region_feat[batch_idx, query_idx]  # [sum(N_gt), C]
-
         # print(indices)
+
+        #output_regions = [B, Nq, length, vocab_size]
+
         print(f"1.            Vision Encoder size: {src.size()}")
         print(f"2. Output Memory Transformer size: {memory.size()}")
         print(f"3.         Ouput Transformer size: {hs[-1].size()} and {hs.size()}")

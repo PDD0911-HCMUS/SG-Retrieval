@@ -14,7 +14,7 @@ import json
 
 pwd = os.getcwd()
 root = os.path.join(pwd,'Datasets')
-img_folder_vg = os.path.join(root,'VisualGenome/VG_100K/')
+img_folder_vg = os.path.join(root,'MSCOCO/mscoco/')
 
 def set_seed(seed=42):
     random.seed(seed)  # Python random seed
@@ -103,8 +103,8 @@ if __name__ == "__main__":
 
     rev_id, Go, Ge = get_set()
 
-    model, _, preprocess = open_clip.create_model_and_transforms('ViT-L-14', pretrained='openai')
-    tokenizer = open_clip.get_tokenizer('ViT-L-14')
+    model, _, preprocess = open_clip.create_model_and_transforms('ViT-B-32', pretrained='openai')
+    tokenizer = open_clip.get_tokenizer('ViT-B-32')
 
     image_rev = create_gallery(model, rev_id, preprocess, device)
     print("Gallery size:", len(image_rev))
