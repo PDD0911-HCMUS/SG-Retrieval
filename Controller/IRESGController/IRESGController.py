@@ -191,19 +191,20 @@ def create_gallery():
     model = get_model()
 
     IRESGVGV2 = entity.IRESGVGV2
+    IRESGMSCOCOV2 = entity.IRESGMSCOCOV2
     try:    
         for img_a, img_b, trip_que, trip_rev, image_id_a, image_id_b in tqdm(data_db):
 
             im_id_o, z_i_o = get_embedding_v2(model, image_id_a, img_a,device)
             im_id_e, z_i_e = get_embedding_v2(model, image_id_b, img_b,device)
 
-            insert_o = IRESGVGV2(
+            insert_o = IRESGMSCOCOV2(
                 image_id = im_id_o,
                 embedding = z_i_o.tolist(),
                 # triplets = trip_que
             )
 
-            insert_e = IRESGVGV2(
+            insert_e = IRESGMSCOCOV2(
                 image_id = im_id_e,
                 embedding = z_i_e.tolist(),
                 # triplets = trip_rev
