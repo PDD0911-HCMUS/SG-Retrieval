@@ -272,11 +272,12 @@ def retrieve():
         z_que = z_que.unsqueeze(0)
 
         IRESGVGV2 = entity.IRESGVGV2
+        IRESGMSCOCOV2 = entity.IRESGMSCOCOV2
         image_ids = []
         embeddings = []
         gallery = db.session.query(
-            IRESGVGV2.image_id,
-            IRESGVGV2.embedding
+            IRESGMSCOCOV2.image_id,
+            IRESGMSCOCOV2.embedding
         ).all()
 
         for image_id, embedding in gallery:
@@ -308,3 +309,7 @@ def retrieve():
             Status = False, 
             Msg = traceback.format_exc()
         )
+    
+@rev_v2_api.route('/images/<filename>')
+def serve_image(filename):
+    return send_from_directory(args.ConfigData.img_folder_coco, filename)
