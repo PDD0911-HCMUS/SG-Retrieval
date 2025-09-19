@@ -177,7 +177,7 @@ def compute_ndcg(model: ModelCross, data_db, device, K = [10, 20, 50]):
 
     sum_ndcg = defaultdict(float)
     n_query = 0
-    tgt_pth = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/Datasets/MSCOCO/Target_mscoco.json'
+    tgt_pth = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/Datasets/VisualGenome/Target.json'
     with open(tgt_pth) as f:
         tgt_lst = json.load(f)
 
