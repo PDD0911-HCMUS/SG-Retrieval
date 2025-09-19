@@ -114,14 +114,16 @@ def compute_top_accuracy(model: ModelCross, data_db: Iterable, device, K = [10, 
     print(f"Start Running Validation")
     with torch.no_grad():
         for img_a, img_b, trip_que, trip_rev, image_id_a, image_id_b in tqdm(data_db):
+
+            trip_rev = [{k: v.to(device) for k, v in t.items()} for t in trip_rev]
             image_ids_a.append(image_id_a[0])
 
             img_a = img_a[0].to(device)
 
-            z_iA, z_iA_msk, _ = model.models.vision_encoder(img_a)
-            z_iA = model.models.proj(z_iA[:,0])
-
-            revO = faiss_retrieval_controller(z_iA, images_rev, images_ids_b)
+            ge, _ = model.models.graph_encoder_e(trip_rev)
+            ge = model.models.proj(ge[:, 0])
+            
+            revO = faiss_retrieval_controller(ge, images_rev, images_ids_b)
             for k in K:
                 if(image_id_b[0] in revO[:k]):
                     hits_o[k] += 1
@@ -131,7 +133,7 @@ def compute_top_accuracy(model: ModelCross, data_db: Iterable, device, K = [10, 
         Acc_o = {k: hits_o[k] / len(data_db) for k in K}
         # print("Recall@K for z_o:", recall_o)
         # print("Recall@K for z_e:", recall_e)
-        print(f"========== Recall for only Images ==========")
+        print(f"========== Recall for only Graphs MSCOCO ==========")
         print(f"Images | Acc@10: {Acc_o[10]:.5f} | Acc@20: {Acc_o[20]:.5f} | Acc@50: {Acc_o[50]:.5f}")
 
 def ndcg_at_k(ranked_ids, pos_set, Ks=(10, 20, 50)):
@@ -184,18 +186,14 @@ def compute_ndcg(model: ModelCross, data_db, device, K = [10, 20, 50]):
         for img_a, img_b, trip_que, trip_rev, image_id_a, image_id_b in tqdm(data_db):
             img_a = img_a[0].to(device)
 
-            # encode query image -> embedding
-            z_iA, z_iA_msk, _ = model.models.vision_encoder(img_a)
-            z_iA = model.models.proj(z_iA[:, 0])
+            trip_rev = [{k: v.to(device) for k, v in t.items()} for t in trip_rev]
 
-            # FAISS search -> ranked list (ví dụ top-50 IDs)
-            ranked_ids = faiss_retrieval_controller(z_iA, images_rev, images_ids_b)
+            img_a = img_a[0].to(device)
 
-            # ---- ground-truth ----
-            # hiện tại GT là 1 ảnh: image_id_b[0]
-            # nếu sau này có nhiều GT: pos_set = set(list_ground_truth_ids)
+            ge, _ = model.models.graph_encoder_e(trip_rev)
+            ge = model.models.proj(ge[:, 0])
 
-            # print(image_id_a[0])
+            ranked_ids = faiss_retrieval_controller(ge, images_rev, images_ids_b)
 
             tgt = get_tgt_by_image(image_id_a[0], tgt_lst)
             pos_set = set(tgt)
@@ -210,7 +208,7 @@ def compute_ndcg(model: ModelCross, data_db, device, K = [10, 20, 50]):
     # trung bình trên tất cả query
     mean_ndcg = {key: (sum_ndcg[key] / max(1, n_query)) for key in sum_ndcg}
 
-    print("========== nDCG (only Images) ==========")
+    print("========== nDCG (only Graphs) ==========")
     # in theo thứ tự K
     for k in K:
         print(f"nDCG@{k}: {mean_ndcg.get(f'nDCG@{k}', 0.0):.5f}")

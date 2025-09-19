@@ -96,6 +96,95 @@ def compute_recall(model, rev_id, image_rev, Go, Ge, device, K = [10, 20, 50]):
         print(f"Editted     | R@10: {recall_e[10]:.5f} | R@20: {recall_e[20]:.5f} | R@50: {recall_e[50]:.5f}")
 
     return 
+
+def ndcg_at_k(ranked_ids, pos_set, Ks=(10, 20, 50)):
+    """
+    ranked_ids: list[str]  — danh sách ID ảnh đã xếp hạng (ví dụ top-50)
+    pos_set:    set[str]   — tập các ground-truth (có thể nhiều phần tử)
+    Ks:         iterable   — các K cần tính (10,20,50)
+
+    Trả về: dict {f"nDCG@{K}": value}
+    """
+    # relevance nhị phân (1 nếu ảnh thuộc ground-truth, ngược lại 0)
+    rel = [1 if rid in pos_set else 0 for rid in ranked_ids]
+
+    out = {}
+    m = len(pos_set)
+    for K in Ks:
+        rK = rel[:K]
+        # DCG@K
+        dcg = 0.0
+        for i, r in enumerate(rK, start=1):
+            if r:
+                dcg += 1.0 / math.log2(i + 1)
+
+        # IDCG@K (trường hợp lý tưởng: tất cả positives đứng đầu)
+        ideal_hits = min(m, K)
+        idcg = sum(1.0 / math.log2(i + 1) for i in range(1, ideal_hits + 1))
+
+        ndcg = (dcg / idcg) if idcg > 0 else 0.0
+        out[f"nDCG@{K}"] = ndcg
+    return out
+
+def compute_ndcg(model, rev_id, image_rev, Go, Ge, device, K = [10, 20, 50]):
+    """
+    Giống compute_recall nhưng tính nDCG@K.
+    YÊU CẦU: faiss_retrieval_controller(z, images_rev, images_ids_b) trả về list ID ảnh đã xếp hạng (ví dụ n=50).
+    Ground-truth hiện tại: mỗi record có 1 ảnh đúng (image_id_b[0]).
+    Nếu sau này bạn có multi-GT, chỉ cần thay pos_set lại cho phù hợp.
+    """
+    print("Creating Gallery")
+    images_ids_b, images_rev = create_gallery(model, data_db, device)
+
+    sum_ndcg = defaultdict(float)
+    n_query = 0
+    tgt_pth = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/Datasets/VisualGenome/Target.json'
+    with open(tgt_pth) as f:
+        tgt_lst = json.load(f)
+
+    print("Start Running Validation (nDCG)")
+    with torch.no_grad():
+        for img_a, img_b, trip_que, trip_rev, image_id_a, image_id_b in tqdm(data_db):
+            img_a = img_a[0].to(device)
+
+            # encode query image -> embedding
+            z_iA, z_iA_msk, _ = model.models.vision_encoder(img_a)
+            z_iA = model.models.proj(z_iA[:, 0])
+
+            # FAISS search -> ranked list (ví dụ top-50 IDs)
+            ranked_ids = faiss_retrieval_controller(z_iA, images_rev, images_ids_b)
+
+            # ---- ground-truth ----
+            # hiện tại GT là 1 ảnh: image_id_b[0]
+            # nếu sau này có nhiều GT: pos_set = set(list_ground_truth_ids)
+
+            # print(image_id_a[0])
+
+            tgt = get_tgt_by_image(image_id_a[0], tgt_lst)
+            pos_set = set(tgt)
+
+            # tính nDCG@K cho query này
+            q_ndcg = ndcg_at_k(ranked_ids, pos_set, Ks=K)
+            for key, val in q_ndcg.items():
+                sum_ndcg[key] += val
+
+            n_query += 1
+
+    # trung bình trên tất cả query
+    mean_ndcg = {key: (sum_ndcg[key] / max(1, n_query)) for key in sum_ndcg}
+
+    print("========== nDCG (only Images) ==========")
+    # in theo thứ tự K
+    for k in K:
+        print(f"nDCG@{k}: {mean_ndcg.get(f'nDCG@{k}', 0.0):.5f}")
+
+    return mean_ndcg
+
+def get_tgt_by_image(image_id, tgt_lst):
+    for item in tgt_lst:
+        if(item['image_query'] == image_id):
+
+            return item['target']
     
 if __name__ == "__main__":
 
