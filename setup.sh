@@ -1,5 +1,5 @@
 #Export Python Path
-export PYTHONPATH='/home/duypd/ThisPC-DuyPC/SG-Retrieval'
+export PYTHONPATH=/home/duypd/ThisPC-DuyPC/SG-Retrieval:$PYTHONPATH
 echo $PYTHONPATH
 
 #Generate Entities 
@@ -8,4 +8,4 @@ echo $PYTHONPATH
 #Run API
 # python3 app.py
 
-CUDA_VISIBLE_DEVICES=0, python3 Controller/IRESGController/train.py 
+# CUDA_VISIBLE_DEVICES=0, python3 Controller/IRESGController/train.py 

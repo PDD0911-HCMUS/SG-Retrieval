@@ -16,7 +16,7 @@ from transformers import AutoProcessor, BlipModel, BlipForImageTextRetrieval
 
 pwd = os.getcwd()
 root = os.path.join(pwd,'Datasets')
-img_folder_vg = os.path.join(root,'VisualGenome/VG_100K/')
+img_folder_vg = os.path.join(root,'MSCOCO/mscoco/')
 
 def set_seed(seed=42):
     random.seed(seed)  # Python random seed
@@ -131,23 +131,21 @@ def compute_ndcg(model, preprocess, rev_id, image_rev, Go, Ge, device, K = [10, 
 
     sum_ndcg = defaultdict(float)
     n_query = 0
-    tgt_pth = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/Datasets/VisualGenome/Target.json'
+    tgt_pth = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/Datasets/MSCOCO/Target_mscoco.json'
     with open(tgt_pth) as f:
         tgt_lst = json.load(f)
 
     with torch.no_grad():
         for r_id, go, ge in tqdm(zip(rev_id, Go, Ge)):
-            # image = Image.open(os.path.join(img_folder_vg, go)).convert('RGB')
-            text = ge
-            inputs = preprocess(text=text, padding=True, return_tensors="pt").to(device)
-            z = model.get_text_features(**inputs)
+            image = Image.open(os.path.join(img_folder_vg, go)).convert('RGB')
+            # text = ge
+            inputs = preprocess(images=image, return_tensors="pt").to(device)
+            z = model.get_image_features(**inputs)
             # image_emb = z.image_embeds
             # text_emb = z.text_embeds.mean(dim=0).unsqueeze(0)
             # z = image_emb + text_emb
             z = z.mean(dim=0).unsqueeze(0)
             revO = faiss_retrieval_controller(z, image_rev, rev_id)
-            print("===============")
-            print()
             revv_id  = r_id.split('/')[-1]
             tgt = get_tgt_by_image(revv_id, tgt_lst)
             pos_set = set(tgt)
