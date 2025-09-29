@@ -1,4 +1,5 @@
 # import clip
+import math
 import torch
 from PIL import Image
 import open_clip
@@ -16,21 +17,16 @@ pwd = os.getcwd()
 root = os.path.join(pwd,'Datasets')
 img_folder_vg = os.path.join(root,'MSCOCO/mscoco/')
 
-def set_seed(seed=42):
-    random.seed(seed)  # Python random seed
-    np.random.seed(seed)  # NumPy random seed
-    torch.manual_seed(seed)  # PyTorch random seed
-    torch.cuda.manual_seed(seed)  # Cho GPU
-
 def get_set():
     with open(anno_valid, 'r') as f:
         data = json.load(f)
 
     rev_id, Go, Ge = [], [], []
     for item in data:
-        rev_id.append(os.path.join(vg_image_dir, item['rev']['image_id']))
-        Go.append(item['qe']['trip'])
-        Ge.append(item['rev']['trip'])
+        rev_id.append(os.path.join(img_folder_vg, item['rev']['image_id']))
+        Go.append(item['qe']['image_id'])
+        Ge.append(item['qe']['trip'])
+        # break
     return rev_id, Go, Ge
 
 def create_gallery(model, data_db, preprocess, device):
@@ -46,6 +42,8 @@ def create_gallery(model, data_db, preprocess, device):
 
             imgs_b.append(z_i.squeeze(0))
 
+            # break
+
         return imgs_b
     
 def faiss_retrieval_controller(z_que, set_z_rev, images_id_rev):
@@ -59,41 +57,79 @@ def faiss_retrieval_controller(z_que, set_z_rev, images_id_rev):
     index = faiss.IndexFlatIP(set_z_rev.shape[1])  # Dùng Euclidean distance
     index.add(set_z_rev)
     D, I = index.search(z_que, k=50)
-    selected_images = [images_id_rev[i] for i in I[0]]
+    selected_images = [images_id_rev[i].split('/')[-1] for i in I[0]]
     return selected_images
     
-def compute_recall(model, rev_id, image_rev, Go, Ge, device, K = [10, 20, 50]):
+def compute_recall_only_images(model, rev_id, image_rev, Go, Ge, device, pre_trained, K = [10, 20, 50]):
 
     hits_o = defaultdict(int)
-    hits_e = defaultdict(int)
 
     with torch.no_grad():
         for r_id, go, ge in tqdm(zip(rev_id, Go, Ge)):
 
-            token_zo = tokenizer(go).to(device) 
-            token_ze = tokenizer(ge).to(device) 
-            
-            zo = model.encode_text(token_zo)
-            ze = model.encode_text(token_ze)
-
-            revO = faiss_retrieval_controller(zo, image_rev, rev_id)
-            revE = faiss_retrieval_controller(ze, image_rev, rev_id)
-            # print(image_id_a[0], image_id_b[0])
+            inputs = preprocess(Image.open(os.path.join(img_folder_vg, go)).convert('RGB')).unsqueeze(0).to(device)
+            z = model.encode_image(inputs)
+            revO = faiss_retrieval_controller(z, image_rev, rev_id)
             for k in K:
                 if(r_id in revO[:k]):
                     hits_o[k] += 1
-                if(r_id in revE[:k]):
-                    hits_e[k] += 1
+
+            # # break
+
+        recall_o = {k: hits_o[k] / len(rev_id) for k in K}
+        print(f"========== Recall only Images {pre_trained} ==========")
+        print(f"non-Editted | R@10: {recall_o[10]:.5f} | R@20: {recall_o[20]:.5f} | R@50: {recall_o[50]:.5f}")
+
+    return 
+
+def compute_recall_only_graph(model, preprocess, rev_id, image_rev, Go, Ge, device, pre_trained, K = [10, 20, 50]):
+
+    hits_o = defaultdict(int)
+
+    with torch.no_grad():
+        for r_id, go, ge in tqdm(zip(rev_id, Go, Ge)):
+
+            inputs = preprocess(Image.open(os.path.join(img_folder_vg, go)).convert('RGB')).unsqueeze(0).to(device)
+            z = model.encode_image(inputs)
+            revO = faiss_retrieval_controller(z, image_rev, rev_id)
+            
+            for k in K:
+                if(r_id in revO[:k]):
+                    hits_o[k] += 1
+
+            break
+
+        recall_o = {k: hits_o[k] / len(rev_id) for k in K}
+        print(f"========== Recall only Graphs {pre_trained} ==========")
+        print(f"non-Editted | R@10: {recall_o[10]:.5f} | R@20: {recall_o[20]:.5f} | R@50: {recall_o[50]:.5f}")
+
+    return 
+
+def compute_recall_cross(model, tokenizer, preprocess, rev_id, image_rev, Go, Ge, device, pre_trained, K = [10, 20, 50]):
+
+    hits_o = defaultdict(int)
+
+    with torch.no_grad():
+        for r_id, go, ge in tqdm(zip(rev_id, Go, Ge)):
+            text = ge
+            inputs_im = preprocess(Image.open(os.path.join(img_folder_vg, go)).convert('RGB')).unsqueeze(0).to(device)
+            inputs_txt = tokenizer(text).to(device) 
+            z_i = model.encode_image(inputs_im)
+            z_t = model.encode_text(inputs_txt)
+            z_t = z_t.mean(dim=0).unsqueeze(0)
+            z = z_i + z_t
+            revO = faiss_retrieval_controller(z, image_rev, rev_id)
+            # print(revO)
+            r_id = r_id.split('/')[-1]
+            for k in K:
+                if(r_id in revO[:k]):
+                    hits_o[k] += 1
 
             # break
 
         recall_o = {k: hits_o[k] / len(rev_id) for k in K}
-        recall_e = {k: hits_e[k] / len(rev_id) for k in K}
-        # print("Recall@K for z_o:", recall_o)
-        # print("Recall@K for z_e:", recall_e)
-        print(f"========== Recall for non-Editted and Editted ==========")
+        print(f"========== Recall only Cross {pre_trained} ==========")
         print(f"non-Editted | R@10: {recall_o[10]:.5f} | R@20: {recall_o[20]:.5f} | R@50: {recall_o[50]:.5f}")
-        print(f"Editted     | R@10: {recall_e[10]:.5f} | R@20: {recall_e[20]:.5f} | R@50: {recall_e[50]:.5f}")
 
     return 
 
@@ -126,54 +162,107 @@ def ndcg_at_k(ranked_ids, pos_set, Ks=(10, 20, 50)):
         out[f"nDCG@{K}"] = ndcg
     return out
 
-def compute_ndcg(model, rev_id, image_rev, Go, Ge, device, K = [10, 20, 50]):
-    """
-    Giống compute_recall nhưng tính nDCG@K.
-    YÊU CẦU: faiss_retrieval_controller(z, images_rev, images_ids_b) trả về list ID ảnh đã xếp hạng (ví dụ n=50).
-    Ground-truth hiện tại: mỗi record có 1 ảnh đúng (image_id_b[0]).
-    Nếu sau này bạn có multi-GT, chỉ cần thay pos_set lại cho phù hợp.
-    """
-    print("Creating Gallery")
-    images_ids_b, images_rev = create_gallery(model, data_db, device)
+def compute_ndcg_only_images(model, preprocess, rev_id, image_rev, Go, Ge, device, tgt_lst, pre_trained, K = [10, 20, 50]):
 
     sum_ndcg = defaultdict(float)
     n_query = 0
-    tgt_pth = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/Datasets/VisualGenome/Target.json'
-    with open(tgt_pth) as f:
-        tgt_lst = json.load(f)
-
-    print("Start Running Validation (nDCG)")
+    
     with torch.no_grad():
-        for img_a, img_b, trip_que, trip_rev, image_id_a, image_id_b in tqdm(data_db):
-            img_a = img_a[0].to(device)
+        for r_id, go, ge in tqdm(zip(rev_id, Go, Ge)):
+            inputs = preprocess(Image.open(os.path.join(img_folder_vg, go)).convert('RGB')).unsqueeze(0).to(device)
+            z = model.encode_image(inputs)
+            revO = faiss_retrieval_controller(z, image_rev, rev_id)
 
-            # encode query image -> embedding
-            z_iA, z_iA_msk, _ = model.models.vision_encoder(img_a)
-            z_iA = model.models.proj(z_iA[:, 0])
+            tgt = get_tgt_by_image(go, tgt_lst)
 
-            # FAISS search -> ranked list (ví dụ top-50 IDs)
-            ranked_ids = faiss_retrieval_controller(z_iA, images_rev, images_ids_b)
-
-            # ---- ground-truth ----
-            # hiện tại GT là 1 ảnh: image_id_b[0]
-            # nếu sau này có nhiều GT: pos_set = set(list_ground_truth_ids)
-
-            # print(image_id_a[0])
-
-            tgt = get_tgt_by_image(image_id_a[0], tgt_lst)
+            # print(go)
+            # print(tgt)
             pos_set = set(tgt)
 
             # tính nDCG@K cho query này
-            q_ndcg = ndcg_at_k(ranked_ids, pos_set, Ks=K)
+            q_ndcg = ndcg_at_k(revO, pos_set, Ks=K)
             for key, val in q_ndcg.items():
                 sum_ndcg[key] += val
 
             n_query += 1
 
+            # break
+
     # trung bình trên tất cả query
     mean_ndcg = {key: (sum_ndcg[key] / max(1, n_query)) for key in sum_ndcg}
 
-    print("========== nDCG (only Images) ==========")
+    print(f"========== nDCG only Images {pre_trained} ==========")
+    # in theo thứ tự K
+    for k in K:
+        print(f"nDCG@{k}: {mean_ndcg.get(f'nDCG@{k}', 0.0):.5f}")
+
+    return mean_ndcg
+
+def compute_ndcg_only_graph(model, preprocess, rev_id, image_rev, Go, Ge, device, tgt_lst, pre_trained, K = [10, 20, 50]):
+
+    sum_ndcg = defaultdict(float)
+    n_query = 0
+
+    with torch.no_grad():
+        for r_id, go, ge in tqdm(zip(rev_id, Go, Ge)):
+            text = ge
+            inputs = preprocess(text).to(device) 
+            z = model.encode_text(inputs)
+            z = z.mean(dim=0).unsqueeze(0)
+            revO = faiss_retrieval_controller(z, image_rev, rev_id)
+            tgt = get_tgt_by_image(go, tgt_lst)
+            pos_set = set(tgt)
+
+            # tính nDCG@K cho query này
+            q_ndcg = ndcg_at_k(revO, pos_set, Ks=K)
+            for key, val in q_ndcg.items():
+                sum_ndcg[key] += val
+
+            n_query += 1
+
+            # break
+
+    # trung bình trên tất cả query
+    mean_ndcg = {key: (sum_ndcg[key] / max(1, n_query)) for key in sum_ndcg}
+
+    print(f"========== nDCG only Graphs {pre_trained} ==========")
+    # in theo thứ tự K
+    for k in K:
+        print(f"nDCG@{k}: {mean_ndcg.get(f'nDCG@{k}', 0.0):.5f}")
+
+    return mean_ndcg
+
+def compute_ndcg_cross(model, tokenizer, preprocess, rev_id, image_rev, Go, Ge, device, tgt_lst, pre_trained, K = [10, 20, 50]):
+
+    sum_ndcg = defaultdict(float)
+    n_query = 0
+
+    with torch.no_grad():
+        for r_id, go, ge in tqdm(zip(rev_id, Go, Ge)):
+            text = ge
+            inputs_im = preprocess(Image.open(os.path.join(img_folder_vg, go)).convert('RGB')).unsqueeze(0).to(device)
+            inputs_txt = tokenizer(text).to(device) 
+            z_i = model.encode_image(inputs_im)
+            z_t = model.encode_text(inputs_txt)
+            z_t = z_t.mean(dim=0).unsqueeze(0)
+            z = z_i + z_t
+            revO = faiss_retrieval_controller(z, image_rev, rev_id)
+            tgt = get_tgt_by_image(go, tgt_lst)
+            pos_set = set(tgt)
+
+            # tính nDCG@K cho query này
+            q_ndcg = ndcg_at_k(revO, pos_set, Ks=K)
+            for key, val in q_ndcg.items():
+                sum_ndcg[key] += val
+
+            n_query += 1
+
+            # break
+
+    # trung bình trên tất cả query
+    mean_ndcg = {key: (sum_ndcg[key] / max(1, n_query)) for key in sum_ndcg}
+
+    print(f"========== nDCG only Cross {pre_trained} ==========")
     # in theo thứ tự K
     for k in K:
         print(f"nDCG@{k}: {mean_ndcg.get(f'nDCG@{k}', 0.0):.5f}")
@@ -183,24 +272,33 @@ def compute_ndcg(model, rev_id, image_rev, Go, Ge, device, K = [10, 20, 50]):
 def get_tgt_by_image(image_id, tgt_lst):
     for item in tgt_lst:
         if(item['image_query'] == image_id):
-
             return item['target']
     
 if __name__ == "__main__":
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
+    pre_trained = 'ViT-L-14'
+
     rev_id, Go, Ge = get_set()
 
-    model, _, preprocess = open_clip.create_model_and_transforms('ViT-B-32', pretrained='openai')
-    tokenizer = open_clip.get_tokenizer('ViT-B-32')
+    tgt_pth = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/Datasets/MSCOCO/Target_mscoco.json'
+    with open(tgt_pth) as f:
+        tgt_lst = json.load(f)
+
+    model, _, preprocess = open_clip.create_model_and_transforms(pre_trained, pretrained='openai')
+    tokenizer = open_clip.get_tokenizer(pre_trained)
 
     image_rev = create_gallery(model, rev_id, preprocess, device)
     print("Gallery size:", len(image_rev))
     print("Sample vector shape:", image_rev[0].shape)
     print("All vectors same shape:", all(t.shape == image_rev[0].shape for t in image_rev))
 
-    compute_recall(model, rev_id, image_rev, Go, Ge, device)
+    # compute_recall_only_images(model, rev_id, image_rev, Go, Ge, device)
+    # compute_recall_cross(model, tokenizer, preprocess, rev_id, image_rev, Go, Ge, device, pre_trained)
 
+    compute_ndcg_only_images(model, preprocess, rev_id, image_rev, Go, Ge, device, tgt_lst, pre_trained)
+    compute_ndcg_only_graph(model, tokenizer, rev_id, image_rev, Go, Ge, device, tgt_lst, pre_trained)
+    compute_ndcg_cross(model, tokenizer, preprocess, rev_id, image_rev, Go, Ge, device, tgt_lst, pre_trained)
 
 

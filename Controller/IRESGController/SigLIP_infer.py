@@ -1,4 +1,3 @@
-# import clip
 import math
 import torch
 from PIL import Image
@@ -12,20 +11,14 @@ from tqdm import tqdm
 import faiss
 from collections import defaultdict
 import json
-from transformers import AutoProcessor, BlipModel, BlipForImageTextRetrieval
+from transformers import AutoProcessor, AutoModel, AutoTokenizer, SiglipTextModel
 
 pwd = os.getcwd()
 root = os.path.join(pwd,'Datasets')
-img_folder_vg = os.path.join(root,'MSCOCO/mscoco/')
-
-def set_seed(seed=42):
-    random.seed(seed)  # Python random seed
-    np.random.seed(seed)  # NumPy random seed
-    torch.manual_seed(seed)  # PyTorch random seed
-    torch.cuda.manual_seed(seed)  # Cho GPU
+img_folder_vg = os.path.join(root,'VisualGenome/VG_100K/')
 
 def get_set():
-    with open(anno_valid, 'r') as f:
+    with open(anno, 'r') as f:
         data = json.load(f)
 
     rev_id, Go, Ge = [], [], []
@@ -42,7 +35,6 @@ def create_gallery(model, data_db, preprocess, device):
         for image_id_b in tqdm(data_db):
             
             im = preprocess(images=Image.open(image_id_b).convert('RGB'), return_tensors="pt").to(device)
-
             z_i = model.get_image_features(**im)
             
             z_i = F.normalize(z_i, p=2, dim=1)
@@ -95,20 +87,67 @@ def ndcg_at_k(ranked_ids, pos_set, Ks=(10, 20, 50)):
         out[f"nDCG@{K}"] = ndcg
     return out
 
-def compute_recall(model, preprocess, rev_id, image_rev, Go, Ge, device, K = [10, 20, 50]):
+def compute_recall_only_images(model, preprocess, rev_id, image_rev, Go, Ge, device, K = [10, 20, 50]):
 
     hits_o = defaultdict(int)
 
     with torch.no_grad():
         for r_id, go, ge in tqdm(zip(rev_id, Go, Ge)):
-            # image = Image.open(os.path.join(img_folder_vg, go)).convert('RGB')
+            image = Image.open(os.path.join(img_folder_vg, go)).convert('RGB')
+            inputs = preprocess(images=image, return_tensors="pt").to(device)
+            z = model.get_image_features(**inputs)
+            revO = faiss_retrieval_controller(z, image_rev, rev_id)
+            for k in K:
+                if(r_id in revO[:k]):
+                    hits_o[k] += 1
+
+            # break
+
+        recall_o = {k: hits_o[k] / len(rev_id) for k in K}
+
+        print(f"========== Recall for Images ==========")
+        print(f"only Image | R@10: {recall_o[10]:.5f} | R@20: {recall_o[20]:.5f} | R@50: {recall_o[50]:.5f}")
+    return 
+
+def compute_recall_only_graph(model, preprocess, rev_id, image_rev, Go, Ge, device, K = [10, 20, 50]):
+
+    hits_o = defaultdict(int)
+
+    with torch.no_grad():
+        for r_id, go, ge in tqdm(zip(rev_id, Go, Ge)):
             text = ge
-            inputs = preprocess(text=text, padding=True, return_tensors="pt").to(device)
-            z = model.get_text_features(**inputs)
-            # image_emb = z.image_embeds
-            # text_emb = z.text_embeds.mean(dim=0).unsqueeze(0)
-            # z = image_emb + text_emb
+            inputs = preprocess(text=text, padding="max_length", return_tensors="pt").to(device)
+            z = model(**inputs)
+            z = z.pooler_output
             z = z.mean(dim=0).unsqueeze(0)
+            revO = faiss_retrieval_controller(z, image_rev, rev_id)
+            for k in K:
+                if(r_id in revO[:k]):
+                    hits_o[k] += 1
+
+            # break
+
+        recall_o = {k: hits_o[k] / len(rev_id) for k in K}
+
+        print(f"========== Recall for Graph ==========")
+        print(f"only Image | R@10: {recall_o[10]:.5f} | R@20: {recall_o[20]:.5f} | R@50: {recall_o[50]:.5f}")
+    return 
+
+def compute_recall_cross(model_text, model, tokenizer, preprocess, rev_id, image_rev, Go, Ge, device, K = [10, 20, 50]):
+
+    hits_o = defaultdict(int)
+
+    with torch.no_grad():
+        for r_id, go, ge in tqdm(zip(rev_id, Go, Ge)):
+            image = Image.open(os.path.join(img_folder_vg, go)).convert('RGB')
+            text = ge
+            inputs_im = preprocess(images=image, return_tensors="pt").to(device)
+            inputs_txt = tokenizer(text=text, padding="max_length", return_tensors="pt").to(device)
+            z_i = model.get_image_features(**inputs_im)
+            z_t = model_text(**inputs_txt)
+            z_t = z_t.pooler_output
+            z_t = z_t.mean(dim=0).unsqueeze(0)
+            z = z_i + z_t
             revO = faiss_retrieval_controller(z, image_rev, rev_id)
             # print(image_id_a[0], image_id_b[0])
             # print(z.size())
@@ -122,19 +161,20 @@ def compute_recall(model, preprocess, rev_id, image_rev, Go, Ge, device, K = [10
 
         print(f"========== Recall for Cross ==========")
         print(f"only Image | R@10: {recall_o[10]:.5f} | R@20: {recall_o[20]:.5f} | R@50: {recall_o[50]:.5f}")
-
     return 
 
 def compute_ndcg_only_images(model, preprocess, rev_id, image_rev, Go, Ge, device, tgt_lst, K = [10, 20, 50]):
 
     sum_ndcg = defaultdict(float)
     n_query = 0
-
+    
     with torch.no_grad():
         for r_id, go, ge in tqdm(zip(rev_id, Go, Ge)):
-            inputs = preprocess(images=Image.open(os.path.join(img_folder_vg, go)).convert('RGB'), return_tensors="pt").to(device)
+            image = Image.open(os.path.join(img_folder_vg, go)).convert('RGB')
+            inputs = preprocess(images=image, return_tensors="pt").to(device)
             z = model.get_image_features(**inputs)
             revO = faiss_retrieval_controller(z, image_rev, rev_id)
+
             tgt = get_tgt_by_image(go, tgt_lst)
             pos_set = set(tgt)
 
@@ -150,7 +190,7 @@ def compute_ndcg_only_images(model, preprocess, rev_id, image_rev, Go, Ge, devic
     # trung bình trên tất cả query
     mean_ndcg = {key: (sum_ndcg[key] / max(1, n_query)) for key in sum_ndcg}
 
-    print("========== nDCG (only Images) ==========")
+    print("========== nDCG only Images ==========")
     # in theo thứ tự K
     for k in K:
         print(f"nDCG@{k}: {mean_ndcg.get(f'nDCG@{k}', 0.0):.5f}")
@@ -165,8 +205,9 @@ def compute_ndcg_only_graph(model, preprocess, rev_id, image_rev, Go, Ge, device
     with torch.no_grad():
         for r_id, go, ge in tqdm(zip(rev_id, Go, Ge)):
             text = ge
-            inputs = preprocess(text=text, padding=True, return_tensors="pt").to(device)
-            z = model.get_text_features(**inputs)
+            inputs = preprocess(text=text, padding="max_length", return_tensors="pt").to(device)
+            z = model(**inputs)
+            z = z.pooler_output
             z = z.mean(dim=0).unsqueeze(0)
             revO = faiss_retrieval_controller(z, image_rev, rev_id)
             tgt = get_tgt_by_image(go, tgt_lst)
@@ -184,25 +225,27 @@ def compute_ndcg_only_graph(model, preprocess, rev_id, image_rev, Go, Ge, device
     # trung bình trên tất cả query
     mean_ndcg = {key: (sum_ndcg[key] / max(1, n_query)) for key in sum_ndcg}
 
-    print("========== nDCG (only Graphs) ==========")
+    print("========== nDCG only Graphs ==========")
     # in theo thứ tự K
     for k in K:
         print(f"nDCG@{k}: {mean_ndcg.get(f'nDCG@{k}', 0.0):.5f}")
 
     return mean_ndcg
 
-def compute_ndcg_cross(model, preprocess, rev_id, image_rev, Go, Ge, device, tgt_lst, K = [10, 20, 50]):
+def compute_ndcg_cross(model_text, model, tokenizer, preprocess, rev_id, image_rev, Go, Ge, device, tgt_lst, K = [10, 20, 50]):
 
     sum_ndcg = defaultdict(float)
     n_query = 0
-   
+
     with torch.no_grad():
         for r_id, go, ge in tqdm(zip(rev_id, Go, Ge)):
+            image = Image.open(os.path.join(img_folder_vg, go)).convert('RGB')
             text = ge
-            image_emb = preprocess(images=Image.open(os.path.join(img_folder_vg, go)).convert('RGB'), return_tensors="pt").to(device)
-            text_emb = preprocess(text=text, padding=True, return_tensors="pt").to(device)
-            z_i = model.get_image_features(**image_emb)
-            z_t = model.get_text_features(**text_emb)
+            inputs_im = preprocess(images=image, return_tensors="pt").to(device)
+            inputs_txt = tokenizer(text=text, padding="max_length", return_tensors="pt").to(device)
+            z_i = model.get_image_features(**inputs_im)
+            z_t = model_text(**inputs_txt)
+            z_t = z_t.pooler_output
             z_t = z_t.mean(dim=0).unsqueeze(0)
             z = z_i + z_t
             revO = faiss_retrieval_controller(z, image_rev, rev_id)
@@ -221,7 +264,7 @@ def compute_ndcg_cross(model, preprocess, rev_id, image_rev, Go, Ge, device, tgt
     # trung bình trên tất cả query
     mean_ndcg = {key: (sum_ndcg[key] / max(1, n_query)) for key in sum_ndcg}
 
-    print("========== nDCG (only Cross) ==========")
+    print("========== nDCG only Cross ==========")
     # in theo thứ tự K
     for k in K:
         print(f"nDCG@{k}: {mean_ndcg.get(f'nDCG@{k}', 0.0):.5f}")
@@ -234,27 +277,33 @@ def get_tgt_by_image(image_id, tgt_lst):
 
             return item['target']
         
+
 if __name__ == "__main__":
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     rev_id, Go, Ge = get_set()
 
-    tgt_pth = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/Datasets/MSCOCO/Target_mscoco.json'
+    tgt_pth = '/home/duypd/ThisPC-DuyPC/SG-Retrieval/Datasets/VisualGenome/Target.json'
     with open(tgt_pth) as f:
         tgt_lst = json.load(f)
 
-    processor = AutoProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
-    model = BlipModel.from_pretrained("Salesforce/blip-image-captioning-base").to(device).eval()
+    
+    model = AutoModel.from_pretrained("google/siglip-base-patch16-224")
+    processor = AutoProcessor.from_pretrained("google/siglip-base-patch16-224")
+
+    model_text = SiglipTextModel.from_pretrained("google/siglip-base-patch16-224")
+    tokenizer = AutoTokenizer.from_pretrained("google/siglip-base-patch16-224")
 
     image_rev = create_gallery(model, rev_id, processor, device)
     print("Gallery size:", len(image_rev))
     print("Sample vector shape:", image_rev[0].shape)
     print("All vectors same shape:", all(t.shape == image_rev[0].shape for t in image_rev))
 
+    # compute_recall_only_images(model, processor, rev_id, image_rev, Go, Ge, device)
+    # compute_recall_only_graph(model_text, tokenizer, rev_id, image_rev, Go, Ge, device)
+    # compute_recall_cross(model_text, model, tokenizer, processor, rev_id, image_rev, Go, Ge, device)
+
     compute_ndcg_only_images(model, processor, rev_id, image_rev, Go, Ge, device, tgt_lst)
-    compute_ndcg_only_graph(model, processor, rev_id, image_rev, Go, Ge, device, tgt_lst)
-    compute_ndcg_cross(model, processor, rev_id, image_rev, Go, Ge, device, tgt_lst)
-
-
-
+    compute_ndcg_only_graph(model_text, tokenizer, rev_id, image_rev, Go, Ge, device, tgt_lst)
+    compute_ndcg_cross(model_text, model, tokenizer, processor, rev_id, image_rev, Go, Ge, device, tgt_lst)

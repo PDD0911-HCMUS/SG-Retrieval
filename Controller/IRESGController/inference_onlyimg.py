@@ -217,6 +217,41 @@ def compute_ndcg(model: ModelCross, data_db, device, K = [10, 20, 50]):
 
     return mean_ndcg
 
+def compute_ndcg_only_graph(model, preprocess, rev_id, image_rev, Go, Ge, device, tgt_lst, K = [10, 20, 50]):
+
+    sum_ndcg = defaultdict(float)
+    n_query = 0
+
+    with torch.no_grad():
+        for r_id, go, ge in tqdm(zip(rev_id, Go, Ge)):
+            text = ge
+            inputs = preprocess(text=text, padding=True, return_tensors="pt").to(device)
+            z = model.get_text_features(**inputs)
+            z = z.mean(dim=0).unsqueeze(0)
+            revO = faiss_retrieval_controller(z, image_rev, rev_id)
+            tgt = get_tgt_by_image(go, tgt_lst)
+            pos_set = set(tgt)
+
+            # tính nDCG@K cho query này
+            q_ndcg = ndcg_at_k(revO, pos_set, Ks=K)
+            for key, val in q_ndcg.items():
+                sum_ndcg[key] += val
+
+            n_query += 1
+
+            # break
+
+    # trung bình trên tất cả query
+    mean_ndcg = {key: (sum_ndcg[key] / max(1, n_query)) for key in sum_ndcg}
+
+    print("========== nDCG (only Graphs) ==========")
+    # in theo thứ tự K
+    for k in K:
+        print(f"nDCG@{k}: {mean_ndcg.get(f'nDCG@{k}', 0.0):.5f}")
+
+    return mean_ndcg
+
+
 def get_tgt_by_image(image_id, tgt_lst):
     for item in tgt_lst:
         if(item['image_query'] == image_id):

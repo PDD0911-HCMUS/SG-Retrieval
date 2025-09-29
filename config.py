@@ -35,20 +35,20 @@ class ConfigData:
 
     #For IRESGController
     # iresg_train = os.path.join(root, 'VisualGenome', 'anno_iresg/train.json')
-    # iresg_valid = os.path.join(root, 'VisualGenome', 'anno_iresg/valid.json')
+    iresg_valid = os.path.join(root, 'VisualGenome', 'anno_iresg/valid.json')
     # iresg_test = os.path.join(root, 'VisualGenome', 'anno_iresg/test.json')
     # iresg_rel = os.path.join(root, 'VisualGenome', 'anno_reltr/rel.json')
-    # iresg_anno = os.path.join(root, 'VisualGenome', 'Rev_v2.json')
+    iresg_anno = os.path.join(root, 'VisualGenome', 'Rev_v2.json')
 
     iresg_train = os.path.join(root, 'MSCOCO', 'anno_iresg/train.json')
-    iresg_valid = os.path.join(root, 'MSCOCO', 'anno_iresg/valid.json')
+    # iresg_valid = os.path.join(root, 'MSCOCO', 'anno_iresg/valid.json')
     iresg_test = os.path.join(root, 'MSCOCO', 'anno_iresg/test.json')
     iresg_rel = os.path.join(root, 'MSCOCO', 'anno_reltr/rel.json')
-    iresg_anno = os.path.join(root, 'MSCOCO', 'Rev_v2_mscoco.json')
+    # iresg_anno = os.path.join(root, 'MSCOCO', 'Rev_v2_mscoco.json')
 
 class Checkpoint:
     root = os.path.join(pwd,'Checkpoint')
-    ckpt_IRESGCL = os.path.join(root,'IRESGCL', 'model_epoch_80.pth')
+    ckpt_IRESGCL = os.path.join(root,'IRESGCL', 'model_epoch_80.pth')                                 
     ckpt_sgg = os.path.join(root,'RelTR','checkpoint0149reltr.pth')
     ckpt_IRESG = os.path.join(root,'IRESG', 'epoch_39_mscoco.pth')
     # ckpt_IRESG = os.path.join(root,'IRESG', 'epoch_39.pth')
