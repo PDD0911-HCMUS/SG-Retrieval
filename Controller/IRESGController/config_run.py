@@ -15,7 +15,7 @@ tokenizer = "bert-base-uncased"
 anno_train = args.ConfigData.iresg_train
 anno_valid = args.ConfigData.iresg_valid
 anno = args.ConfigData.iresg_anno
-vg_image_dir = args.ConfigData.img_folder_coco
+vg_image_dir = args.ConfigData.img_folder_vg
 
 #Transformer encoder:
 hidden_dim=256

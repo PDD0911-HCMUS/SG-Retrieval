@@ -50,8 +50,8 @@ class Checkpoint:
     root = os.path.join(pwd,'Checkpoint')
     ckpt_IRESGCL = os.path.join(root,'IRESGCL', 'model_epoch_80.pth')                                 
     ckpt_sgg = os.path.join(root,'RelTR','checkpoint0149reltr.pth')
-    ckpt_IRESG = os.path.join(root,'IRESG', 'epoch_39_mscoco.pth')
-    # ckpt_IRESG = os.path.join(root,'IRESG', 'epoch_39.pth')
+    # ckpt_IRESG = os.path.join(root,'IRESG', 'epoch_39_mscoco.pth')
+    ckpt_IRESG = os.path.join(root,'IRESG', 'epoch_39.pth')
 
 batch_size = 12
 num_workers = 0
