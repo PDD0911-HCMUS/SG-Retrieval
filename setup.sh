@@ -9,3 +9,5 @@ echo $PYTHONPATH
 # python3 app.py
 
 # CUDA_VISIBLE_DEVICES=0, python3 Controller/IRESGController/train.py 
+
+export JWT_SECRET_KEY="This_is_my_sceret_key"

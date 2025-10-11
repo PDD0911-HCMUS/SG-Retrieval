@@ -19,6 +19,10 @@ class ConfigDB:
     SQLALCHEMY_DATABASE_URI = f"postgresql://{USERNAME}:{PASSWORD}@{HOSTNAME}:{PORT}/{DATABASE}"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
+class ConfigAPI:
+    access_token_time = 15
+    token_type = "Bearer"
+
 class ConfigData:
     root = os.path.join(pwd,'Datasets')
     

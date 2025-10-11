@@ -2,6 +2,8 @@ from Controller.RelTRSGGController import sgg_api
 from Controller.IRESGCLController.IRESGCLController import rev_api
 from Controller.IRESGController import rev_v2_api
 from Controller.PageController import page_api
+from Controller.UserController import user_api
+from Controller.RoleController import role_api
 from Controller.UtilitiesController.ConnectDBController import util_api 
 from flask import Flask
 from flask_cors import CORS
@@ -20,6 +22,8 @@ app.register_blueprint(rev_api, url_prefix='/rev')
 app.register_blueprint(rev_v2_api, url_prefix='/rev_v2')
 app.register_blueprint(page_api, url_prefix='/page')
 app.register_blueprint(util_api, url_prefix='/util')
+app.register_blueprint(user_api, url_prefix='/user')
+app.register_blueprint(role_api, url_prefix='/role')
 
 if __name__ == "__main__":
     # create_gallery()

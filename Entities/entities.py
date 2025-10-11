@@ -178,6 +178,19 @@ class Pages(Base):
     DeleteAt: Mapped[Optional[datetime.date]] = mapped_column(Date)
 
 
+class Role(Base):
+    __tablename__ = 'Role'
+    __table_args__ = (
+        PrimaryKeyConstraint('ID', name='Role_pkey'),
+    )
+
+    ID: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    RoleName: Mapped[Optional[str]] = mapped_column(Text)
+    CreateAt: Mapped[Optional[datetime.date]] = mapped_column(Date)
+    UpdateAt: Mapped[Optional[datetime.date]] = mapped_column(Date)
+    Active: Mapped[Optional[bool]] = mapped_column(Boolean)
+
+
 class TestTable(Base):
     __tablename__ = 'TestTable'
     __table_args__ = (
@@ -198,7 +211,7 @@ class User(Base):
     ID: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
     Username: Mapped[Optional[str]] = mapped_column(Text)
     Password: Mapped[Optional[str]] = mapped_column(Text)
-    RoleID: Mapped[Optional[list]] = mapped_column(ARRAY(Integer()))
+    RoleID: Mapped[Optional[list]] = mapped_column(ARRAY(Text()))
     Fullname: Mapped[Optional[str]] = mapped_column(Text)
     CreateAt: Mapped[Optional[datetime.date]] = mapped_column(Date)
     UpdateAt: Mapped[Optional[datetime.date]] = mapped_column(Date)
