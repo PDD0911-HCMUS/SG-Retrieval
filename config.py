@@ -50,6 +50,22 @@ class ConfigData:
     iresg_rel = os.path.join(root, 'MSCOCO', 'anno_reltr/rel.json')
     # iresg_anno = os.path.join(root, 'MSCOCO', 'Rev_v2_mscoco.json')
 
+class ConfigDataBDD:
+    root = os.path.join(pwd,'Datasets')
+    image_folfer = os.path.join(root, 'BDD/bdd100k/bdd100k/images/100k')
+    image_seg_folder = os.path.join(root, 'BDD/bdd100k_labels_release/bdd100k/labels/segment')
+    anno_folder = os.path.join(root, 'BDD/bdd100k_labels_release/bdd100k/labels')
+
+    train_driveable_anno = os.path.join(anno_folder, 'bdd100k_train_driveable.json')
+    train_lane_anno = os.path.join(anno_folder, 'bdd100k_train_lane.json')
+    train_box_anno = os.path.join(anno_folder, 'bdd100k_train_box2d.json')
+
+    valid_driveable_anno = os.path.join(anno_folder, 'bdd100k_valid_driveable.json')
+    valid_lane_anno = os.path.join(anno_folder, 'bdd100k_valid_lane.json')
+    valid_box_anno = os.path.join(anno_folder, 'bdd100k_valid_box2d.json')
+
+    categories = os.path.join(anno_folder, 'catgories.json')
+
 class Checkpoint:
     root = os.path.join(pwd,'Checkpoint')
     ckpt_IRESGCL = os.path.join(root,'IRESGCL', 'model_epoch_80.pth')                                 
