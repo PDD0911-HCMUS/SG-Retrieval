@@ -18,7 +18,7 @@ import datasets.transforms as T
 class CocoDetection(torchvision.datasets.CocoDetection):
     def __init__(self, img_folder, ann_file, image_set, transforms):
         super(CocoDetection, self).__init__(img_folder, ann_file)
-        root_image_seg_folder = 'data/bdd100k/bdd100k_labels/segment'
+        root_image_seg_folder = 'Datasets/BDD/bdd100k_labels_release/segment'
         self._transforms = transforms
         self.prepare = ConvertCocoPolysToMask()
 
@@ -120,8 +120,8 @@ def make_coco_transforms(image_set):
 
 def build(image_set):
     mode = 'instances'
-    root_image_folfer = 'data/bdd100k/bdd100k_images_100k'
-    root_anno_folder = 'data/bdd100k/bdd100k_labels'
+    root_image_folfer = 'Datasets/BDD/bdd100k/bdd100k_images_100k'
+    root_anno_folder = 'Datasets/BDD/bdd100k_labels_release'
     if(image_set == "train"):
         img_folder = os.path.join(root_image_folfer, image_set)
         ann_file = os.path.join(root_anno_folder, f"{mode}_{image_set}2017.json")

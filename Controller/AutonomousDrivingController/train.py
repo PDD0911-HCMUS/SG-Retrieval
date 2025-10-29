@@ -15,14 +15,24 @@ from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, Batch
 from models import build_model
 from models.criterion import build_criterion
 
+class Tee:
+    def __init__(self, *files):
+        self.files = files
+    def write(self, obj):
+        for f in self.files:
+            f.write(obj)
+            f.flush()
+    def flush(self):
+        for f in self.files:
+            f.flush()
 
 def get_args_parser():
     parser = argparse.ArgumentParser('Set transformer detector', add_help=False)
     parser.add_argument('--lr', default=1e-4, type=float)
     parser.add_argument('--lr_backbone', default=1e-5, type=float)
-    parser.add_argument('--batch_size', default=2, type=int)
+    parser.add_argument('--batch_size', default=16, type=int)
     parser.add_argument('--weight_decay', default=1e-4, type=float)
-    parser.add_argument('--epochs', default=300, type=int)
+    parser.add_argument('--epochs', default=20, type=int)
     parser.add_argument('--lr_drop', default=200, type=int)
     parser.add_argument('--clip_max_norm', default=0.1, type=float,
                         help='gradient clipping max norm')
@@ -83,7 +93,7 @@ def get_args_parser():
     parser.add_argument('--coco_panoptic_path', type=str)
     parser.add_argument('--remove_difficult', action='store_true')
 
-    parser.add_argument('--output_dir', default='workdirs/ATDrive',
+    parser.add_argument('--output_dir', default='Controller/AutonomousDrivingController/workdirs/ATDrive',
                         help='path where to save, empty for no saving')
     parser.add_argument('--device', default='cuda',
                         help='device to use for training / testing')
@@ -109,6 +119,10 @@ if __name__=="__main__":
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         output_dir = Path(args.output_dir) / timestamp
         output_dir.mkdir(parents=True, exist_ok=True)
+
+        log_dir = Path(output_dir) / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_file = log_dir / f"train_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
         
     batch_size = args.batch_size
     dataset_train = build(image_set="train")
@@ -169,6 +183,13 @@ if __name__=="__main__":
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args.lr_drop)
     
     print("Start training")
+    log_fh = open(log_file, 'w')
+    sys.stdout = Tee(sys.stdout, log_fh)
+    sys.stderr = Tee(sys.stderr, log_fh)
+
+    print(f"[Logger] Training logs will be saved to: {log_file}")
+    print(f"[Logger] Starting training at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
     start_time = time.time()
     
     for epoch in range(args.start_epoch, args.epochs):
@@ -215,7 +236,7 @@ if __name__=="__main__":
                     for name in filenames:
                         torch.save(coco_evaluator.coco_eval["bbox"].eval,
                                    output_dir / "eval" / name)
-        break
+        # break
     
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))   
