@@ -31,11 +31,11 @@ import numpy as np
 import cv2
 
 # ---------- FIXED PATHS ----------
-ROOT_LABELS = os.path.join("Datasets", "BDD", "bdd100k_labels_release", "bdd100k", "labels")
+ROOT_LABELS = os.path.join("data", "bdd100k", "bdd100k_labels")
 TRAIN_JSON = os.path.join(ROOT_LABELS, "bdd100k_labels_images_train.json")
 VAL_JSON   = os.path.join(ROOT_LABELS, "bdd100k_labels_images_val.json")
 
-IMAGE_ROOT_100K = "Datasets/BDD/bdd100k/bdd100k/images/100k"
+IMAGE_ROOT_100K = "data/bdd100k/bdd100k_images_100k"
 
 OUT_INST_TRAIN = os.path.join(ROOT_LABELS, "instances_train2017.json")
 OUT_INST_VAL   = os.path.join(ROOT_LABELS, "instances_val2017.json")
