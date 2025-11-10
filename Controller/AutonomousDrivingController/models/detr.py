@@ -148,21 +148,46 @@ class PostProcess(nn.Module):
 
         return results
 
-def build(args):
-    num_classes = 9
+def build_model(
+        hidden_dim, 
+        position_embedding, 
+        lr_backbone, 
+        backbone, 
+        dilation, 
+        return_interm_layers, 
+        dropout, 
+        nheads, 
+        dim_feedforward, 
+        enc_layers, 
+        dec_layers, 
+        pre_norm,
+        num_queries,
+        aux_loss,
+        num_classes
+    ):
 
-    backbone = build_backbone(args)
+    backbone = build_backbone(hidden_dim, 
+                   position_embedding, 
+                   lr_backbone, 
+                   backbone, 
+                   dilation, 
+                   return_interm_layers)
 
-    transformer = build_transformer(args)
+    transformer = build_transformer(hidden_dim, 
+        dropout, 
+        nheads, 
+        dim_feedforward, 
+        enc_layers, 
+        dec_layers, 
+        pre_norm)
 
     model = DETR(
         backbone,
         transformer,
         num_classes=num_classes,
-        num_queries=args.num_queries,
-        aux_loss=args.aux_loss,
+        num_queries=num_queries,
+        aux_loss=aux_loss,
     )
     postprocessors = {'bbox': PostProcess()}
-    # postprocessors['segm'] = PostProcessSegm()
 
     return model, postprocessors

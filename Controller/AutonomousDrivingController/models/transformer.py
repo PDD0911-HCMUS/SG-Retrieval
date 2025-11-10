@@ -86,15 +86,23 @@ class Transformer(nn.Module):
         return hs.transpose(1, 2), memory.permute(1, 2, 0).view(bs, c, h, w), hs_sp.transpose(1, 2), hm
 
 
-def build_transformer(args):
+def build_transformer(
+        hidden_dim, 
+        dropout, 
+        nheads, 
+        dim_feedforward, 
+        enc_layers, 
+        dec_layers, 
+        pre_norm
+    ):
     return Transformer(
-        d_model=args.hidden_dim,
-        dropout=args.dropout,
-        nhead=args.nheads,
-        dim_feedforward=args.dim_feedforward,
-        num_encoder_layers=args.enc_layers,
-        num_decoder_layers=args.dec_layers,
-        normalize_before=args.pre_norm,
+        d_model=hidden_dim,
+        dropout=dropout,
+        nhead=nheads,
+        dim_feedforward=dim_feedforward,
+        num_encoder_layers=enc_layers,
+        num_decoder_layers=dec_layers,
+        normalize_before=pre_norm,
         return_intermediate_dec=True,
         return_flatten=True
     )

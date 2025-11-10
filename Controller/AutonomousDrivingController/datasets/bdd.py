@@ -16,9 +16,8 @@ import datasets.transforms as T
 # from config_run import *
 
 class CocoDetection(torchvision.datasets.CocoDetection):
-    def __init__(self, img_folder, ann_file, image_set, transforms):
+    def __init__(self, img_folder, ann_file, image_set, root_image_seg_folder, transforms):
         super(CocoDetection, self).__init__(img_folder, ann_file)
-        root_image_seg_folder = 'Datasets/BDD/bdd100k_labels_release/segment'
         self._transforms = transforms
         self.prepare = ConvertCocoPolysToMask()
 
@@ -86,24 +85,24 @@ class ConvertCocoPolysToMask(object):
         return image, target
 
 
-def make_coco_transforms(image_set):
+def make_coco_transforms(image_set, size):
 
     normalize = T.Compose([
         T.ToTensor(),
         T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
 
-    scales = [640,640]
+    scales = [size,size]
 
     if image_set == 'train':
         return T.Compose([
             T.RandomHorizontalFlip(),
             T.RandomSelect(
-                T.RandomResize(scales, max_size=640),
+                T.RandomResize(scales, max_size=size),
                 T.Compose([
-                    T.RandomResize([640,640]),
+                    T.RandomResize([size,size]),
                     # T.RandomSizeCrop(384, 600),
-                    T.RandomResize(scales, max_size=640),
+                    T.RandomResize(scales, max_size=size),
                 ])
             ),
             normalize,
@@ -111,22 +110,20 @@ def make_coco_transforms(image_set):
 
     if image_set == 'val':
         return T.Compose([
-            T.RandomResize([640,640], max_size=640),
+            T.RandomResize([size,size], max_size=size),
             normalize,
         ])
 
     raise ValueError(f'unknown {image_set}')
 
 
-def build(image_set):
+def build(image_set, root_image_folfer, root_anno_folder,  root_image_seg_folder, size):
     mode = 'instances'
-    root_image_folfer = 'Datasets/BDD/bdd100k/bdd100k_images_100k'
-    root_anno_folder = 'Datasets/BDD/bdd100k_labels_release'
     if(image_set == "train"):
         img_folder = os.path.join(root_image_folfer, image_set)
         ann_file = os.path.join(root_anno_folder, f"{mode}_{image_set}2017.json")
     if(image_set == "val"):
         img_folder = os.path.join(root_image_folfer, image_set)
         ann_file = os.path.join(root_anno_folder, f"{mode}_{image_set}2017.json")
-    dataset = CocoDetection(img_folder, ann_file, image_set, transforms=make_coco_transforms(image_set))
+    dataset = CocoDetection(img_folder, ann_file, image_set, root_image_seg_folder, transforms=make_coco_transforms(image_set, size))
     return dataset

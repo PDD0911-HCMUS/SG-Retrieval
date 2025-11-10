@@ -109,12 +109,18 @@ class Joiner(nn.Sequential):
         return out, pos
 
 
-def build_backbone(args):
-    position_embedding = build_position_encoding(args)
-    train_backbone = args.lr_backbone > 0
-    # return_interm_layers = args.masks
+def build_backbone(hidden_dim, 
+                   position_embedding, 
+                   lr_backbone, 
+                   backbone, 
+                   dilation, 
+                   return_interm_layers
+                ):
+    position_embedding = build_position_encoding(hidden_dim, position_embedding)
+    train_backbone = lr_backbone > 0
+    # return_interm_layers = masks
     return_interm_layers = True
-    backbone = Backbone(args.backbone, train_backbone, return_interm_layers, args.dilation)
+    backbone = Backbone(backbone, train_backbone, return_interm_layers, dilation)
     model = Joiner(backbone, position_embedding)
     model.num_channels = backbone.num_channels
     return model

@@ -1,0 +1,23 @@
+model:
+  name: HyDADeTR
+  num_classes: 9
+  hidden_dim: 256
+  
+  backbone: 
+    based: resnet50
+    position_embedding: sine
+    dilation: false
+    return_interm_layers: true
+    lr_backbone: 1.0e-5
+
+  transformer:
+    enc_layers: 6
+    dec_layers: 6
+    dim_feedforward: 2048
+    dropout: 0.1
+    nheads: 8
+    pre_norm: false
+    return_intermediate_dec: true
+
+  num_queries: 100
+  aux_loss: true # false only for inference

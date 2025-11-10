@@ -201,9 +201,6 @@ class HybridTransformerEncoder(nn.Module):
         # flatten NxCxHxW to HWxNxC
         # bs, c, h, w = src.shape
         src5 = self.sm_fusion(src, src4)
-
-        src5 = src5.flatten(2).permute(2, 0, 1)
-        
         #Encoder Forward
         memory = self.encoder(src5, src_key_padding_mask=mask, pos=pos_embed)
         #Fusion Spatail Feature

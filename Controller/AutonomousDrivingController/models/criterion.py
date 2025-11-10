@@ -222,18 +222,30 @@ def dice_loss(inputs, targets):
     loss = 1 - (numerator + 1) / (denominator + 1)
     return loss.sum()
 
-def build_criterion(args):
-    num_classes = 9
-    matcher = build_matcher(args)
-    weight_dict = {'loss_ce': 1, 'loss_bbox': args.bbox_loss_coef}
-    weight_dict['loss_giou'] = args.giou_loss_coef
-    weight_dict["loss_mask"] = args.mask_loss_coef
-    weight_dict["loss_dice"] = args.dice_loss_coef
+def build_criterion(
+        num_classes, 
+        eos_coef,
+        bbox_loss_coef,  
+        giou_loss_coef, 
+        mask_loss_coef, 
+        dice_loss_coef, 
+        aux_loss, 
+        dec_layers,
+        set_cost_class,
+        set_cost_bbox,
+        set_cost_giou
+    ):
+
+    matcher = build_matcher(set_cost_class, set_cost_bbox, set_cost_giou)
+    weight_dict = {'loss_ce': 1, 'loss_bbox': bbox_loss_coef}
+    weight_dict['loss_giou'] = giou_loss_coef
+    weight_dict["loss_mask"] = mask_loss_coef
+    weight_dict["loss_dice"] = dice_loss_coef
         
     # TODO this is a hack
-    if args.aux_loss:
+    if aux_loss:
         aux_weight_dict = {}
-        for i in range(args.dec_layers - 1):
+        for i in range(dec_layers - 1):
             aux_weight_dict.update({k + f'_{i}': v for k, v in weight_dict.items()})
         weight_dict.update(aux_weight_dict)
 
@@ -241,6 +253,6 @@ def build_criterion(args):
     losses += ["masks"]
     
     criterion = SetCriterion(num_classes, matcher=matcher, weight_dict=weight_dict,
-                             eos_coef=args.eos_coef, losses=losses)
+                             eos_coef=eos_coef, losses=losses)
     
     return criterion
