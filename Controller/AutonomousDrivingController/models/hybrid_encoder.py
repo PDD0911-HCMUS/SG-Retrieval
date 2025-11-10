@@ -17,7 +17,59 @@ class RepBlock(nn.Module):
     def forward(self, x):
         out = self.bn3(self.conv3(x)) + self.bn1(self.conv1(x)) + x
         return self.act(out)
-    
+
+class SemanticFusion(nn.Module):
+    """
+    Fusion block cho 2 feature maps S5 & S4 (nhánh detection trong HyDA-DETR).
+    - S5 có độ phân giải nhỏ hơn, giàu ngữ nghĩa.
+    - S4 có độ phân giải lớn hơn, nhiều chi tiết hình học.
+    - Tự động downsample S4 -> size của S5 rồi concat theo kênh.
+    - Hai nhánh song song: 1x1Conv và 1x1Conv + RepBlock (phiên bản nhẹ hơn SpatialFusion).
+    - Element-wise add và kích hoạt SiLU.
+    - Nếu return_flatten=True: trả về [H5*W5, B, C] (F5 trong sơ đồ).
+    """
+    def __init__(self, hidden_dim: int, num_rep_blocks: int = 1, return_flatten: bool = False):
+        super().__init__()
+        C = hidden_dim
+        self.return_flatten = return_flatten
+
+        # Sau concat: [B, 2C, H5, W5] -> [B, C, H5, W5]
+        self.branch1_proj = nn.Conv2d(2*C, C, kernel_size=1, bias=False)
+        self.branch1_bn   = nn.BatchNorm2d(C)
+
+        self.branch2_proj = nn.Conv2d(2*C, C, kernel_size=1, bias=False)
+        self.branch2_bn   = nn.BatchNorm2d(C)
+        reps = [RepBlock(C) for _ in range(num_rep_blocks)]
+        self.branch2_rep  = nn.Sequential(*reps)
+
+        self.act = nn.SiLU(inplace=True)
+
+    def forward(self, s5: torch.Tensor, s4: torch.Tensor):
+        """
+        s5: [B, C, H5, W5]
+        s4: [B, C, H4, W4] (downsample -> [B, C, H5, W5])
+        """
+        B, C, H5, W5 = s5.shape
+
+        # 1) Align S4 -> S5 (downsample)
+        s4_down = F.interpolate(s4, size=(H5, W5), mode='bilinear', align_corners=False)
+
+        # 2) Concat hai đặc trưng
+        x = torch.cat([s5, s4_down], dim=1)  # [B, 2C, H5, W5]
+
+        # 3) Hai nhánh song song
+        b1 = self.branch1_bn(self.branch1_proj(x))          # [B, C, H5, W5]
+        b2 = self.branch2_bn(self.branch2_proj(x))          # [B, C, H5, W5]
+        b2 = self.branch2_rep(b2)
+
+        # 4) Element-wise add + kích hoạt
+        fused = self.act(b1 + b2)                           # [B, C, H5, W5]
+
+        # 5) Flatten (nếu cần cho encoder input)
+        if self.return_flatten:
+            fused = fused.flatten(2).permute(2, 0, 1)       # [H5*W5, B, C]
+
+        return fused
 class SpatialFusion(nn.Module):
     """
     Fusion block (Figure 5 RT-DETR) cho 2 feature maps S3 & S4.
@@ -142,15 +194,18 @@ class HybridTransformerEncoder(nn.Module):
         self.encoder = TransformerEncoder(encoder_layer, num_encoder_layers, encoder_norm)
         
         self.sp_fusion = SpatialFusion(hidden_dim=d_model, num_rep_blocks=1, return_flatten=return_flatten)
+        self.sm_fusion = SemanticFusion(hidden_dim=d_model, num_rep_blocks=1, return_flatten=return_flatten)
         
     def forward(self, src, src3, src4, mask, pos_embed):
         
         # flatten NxCxHxW to HWxNxC
         # bs, c, h, w = src.shape
-        src = src.flatten(2).permute(2, 0, 1)
+        src5 = self.sm_fusion(src, src4)
+
+        src5 = src5.flatten(2).permute(2, 0, 1)
         
         #Encoder Forward
-        memory = self.encoder(src, src_key_padding_mask=mask, pos=pos_embed)
+        memory = self.encoder(src5, src_key_padding_mask=mask, pos=pos_embed)
         #Fusion Spatail Feature
         sp_src = self.sp_fusion(src3, src4)
 
