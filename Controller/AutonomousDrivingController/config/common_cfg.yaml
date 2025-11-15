@@ -2,7 +2,7 @@ common:
   training:
     lr: 1.0e-4
     
-    batch_size: 2
+    batch_size: 32
     weight_decay: 1.0e-4
     epochs: 100
     lr_drop: 50
@@ -18,11 +18,11 @@ common:
     root_seg: Datasets/BDD/bdd100k_labels_release/segment
     size: 640 
   
-  device: cpu
+  device: cuda
   start_epoch: 0
   epochs: 150
 
-  output_dir: workdirs
+  output_dir: Controller/AutonomousDrivingController/workdirs/ATDrive
 
 
 

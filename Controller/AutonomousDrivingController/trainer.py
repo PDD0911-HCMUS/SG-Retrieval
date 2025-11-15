@@ -12,8 +12,6 @@ from datasets.coco_eval import CocoEvaluator
 from datasets.panoptic_eval import PanopticEvaluator
 from pathlib import Path
 from typing import Dict, Iterable, Optional, Tuple
-
-
 class Trainer:
     def __init__(
         self,
@@ -81,7 +79,7 @@ class Trainer:
             metric_logger.update(loss=loss_value, **loss_dict_reduced_scaled, **loss_dict_reduced_unscaled)
             metric_logger.update(class_error=loss_dict_reduced['class_error'])
             metric_logger.update(lr=self.optimizer.param_groups[0]["lr"])
-            break
+            # break
         # end epoch
         metric_logger.synchronize_between_processes()
         print("Averaged stats:", metric_logger)
@@ -148,7 +146,7 @@ class Trainer:
                     res_pano[j]["image_id"] = image_id
                     res_pano[j]["file_name"] = file_name
                 panoptic_evaluator.update(res_pano)
-            break
+            # break
         # gather
         metric_logger.synchronize_between_processes()
         print("Averaged stats:", metric_logger)
