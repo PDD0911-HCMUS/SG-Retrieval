@@ -4,7 +4,7 @@ common:
     
     batch_size: 32
     weight_decay: 1.0e-4
-    epochs: 100
+    epochs: 250
     lr_drop: 50
     clip_max_norm: 0.1
     num_workers: 2
@@ -24,7 +24,4 @@ common:
 
   output_dir: Controller/AutonomousDrivingController/workdirs/ATDrive
 
-
-
-
-  
+  resume: "/workspace/Controller/AutonomousDrivingController/workdirs/ATDrive/20251110_070720/checkpoint0075.pth"
