@@ -1,0 +1,26 @@
+common:
+  training:
+    lr: 1.0e-4
+    
+    batch_size: 32
+    weight_decay: 1.0e-4
+    lr_drop: 50
+    clip_max_norm: 0.1
+    num_workers: 2
+
+    print_freq_train: 100
+    print_freq_val: 100
+  
+  data:
+    root_image: /workspace/Datasets/BDD/bdd100k/bdd100k_images_100k
+    root_anno: /workspace/Datasets/BDD/bdd100k_labels_release
+    root_seg: /workspace/Datasets/BDD/bdd100k_labels_release/segment
+    size: 640 
+  
+  device: cuda
+  start_epoch: 0
+  epochs: 200
+
+  output_dir: /workspace/Controller/AutonomousDrivingController/workdirs/ATDrive
+
+  # resume: "/workspace/Controller/AutonomousDrivingController/workdirs/ATDrive/20251110_070720/checkpoint0075.pth"

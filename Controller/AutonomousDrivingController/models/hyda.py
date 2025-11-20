@@ -6,6 +6,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
+from .aux_hub import AuxHubHead
 from util import box_ops
 from util.misc import (NestedTensor, nested_tensor_from_tensor_list)
 
@@ -14,9 +15,9 @@ from .transformer import build_transformer
 from .driveable_segment import DriveSeg
 
 
-class DETR(nn.Module):
+class HyDA(nn.Module):
     """ This is the DETR module that performs object detection """
-    def __init__(self, backbone, transformer, num_classes, num_queries, aux_loss=False):
+    def __init__(self, backbone, transformer, num_classes, num_queries, num_drive_queries, aux_loss=False, training=True):
         """ Initializes the model.
         Parameters:
             backbone: torch module of the backbone to be used. See backbone.py
@@ -28,22 +29,26 @@ class DETR(nn.Module):
         """
         super().__init__()
         C_out = [512, 1024]
-        self.num_queries = num_queries
         self.transformer = transformer
         hidden_dim = transformer.d_model
         nheads = transformer.nhead
         
         self.query_embed = nn.Embedding(num_queries, hidden_dim)
-        self.query_embed_drive = nn.Embedding(num_queries, hidden_dim)
+        self.query_embed_drive = nn.Embedding(num_drive_queries, hidden_dim)
         
-        self.input_spatial_S3_proj = nn.Conv2d(C_out[0], hidden_dim, kernel_size=1) #S3
-        self.input_spatial_S4_proj = nn.Conv2d(C_out[1], hidden_dim, kernel_size=1) #S4
+        self.input_spatial_proj = nn.Conv2d(C_out[0], hidden_dim, kernel_size=1) #S3
+        self.input_hub_proj = nn.Conv2d(C_out[1], hidden_dim, kernel_size=1) #S4
         self.input_proj = nn.Conv2d(backbone.num_channels, hidden_dim, kernel_size=1) #S5
         
         self.drive_seg = DriveSeg(hidden_dim, nheads)
         self.class_embed = nn.Linear(hidden_dim, num_classes + 1)
         self.bbox_embed = MLP(hidden_dim, hidden_dim, 4, 3)
         self.backbone = backbone
+        self.training = training
+        if self.training:
+            self.aux_hub_head = AuxHubHead(in_channels=hidden_dim,
+                                       num_classes=num_classes + 1,
+                                       hidden_dim=hidden_dim)
         self.aux_loss = aux_loss
 
     def forward(self, samples: NestedTensor):
@@ -57,7 +62,7 @@ class DETR(nn.Module):
                - "pred_boxes": The normalized boxes coordinates for all queries, represented as
                                (center_x, center_y, height, width). These values are normalized in [0, 1],
                                relative to the size of each individual image (disregarding possible padding).
-                               See PostProcess for information on how to retrieve the unnormalized bounding box.
+                               See Postfrom models import build_modelProcess for information on how to retrieve the unnormalized bounding box.
                - "aux_outputs": Optional, only returned when auxilary losses are activated. It is a list of
                                 dictionnaries containing the two above keys for each decoder layer.
         """
@@ -72,8 +77,8 @@ class DETR(nn.Module):
         src, mask = features[-1].decompose() #C5
         assert mask is not None
         
-        src3_proj = self.input_spatial_S3_proj(src3) #S3
-        src4_proj = self.input_spatial_S4_proj(src4) #S4
+        src3_proj = self.input_spatial_proj(src3) #S3
+        src4_proj = self.input_hub_proj(src4) #S4
         src_proj = self.input_proj(src) #S5
         
         assert mask is not None
@@ -94,6 +99,12 @@ class DETR(nn.Module):
         #=================End Ouput Inference=================#
         if self.aux_loss:
             out['aux_outputs'] = self._set_aux_loss(outputs_class, outputs_coord)
+            
+        if self.training:
+            aux_logits, aux_boxes = self.aux_hub_head(src4_proj)
+            out["aux_s4_logits"] = aux_logits   # [B, N4, num_classes]
+            out["aux_s4_boxes"]  = aux_boxes    # [B, N4, 4]
+            
         return out
 
     @torch.jit.unused
@@ -162,8 +173,10 @@ def build_model(
         dec_layers, 
         pre_norm,
         num_queries,
+        num_drive_queries,
         aux_loss,
-        num_classes
+        num_classes,
+        training
     ):
 
     backbone = build_backbone(hidden_dim, 
@@ -181,12 +194,14 @@ def build_model(
         dec_layers, 
         pre_norm)
 
-    model = DETR(
+    model = HyDA(
         backbone,
         transformer,
         num_classes=num_classes,
         num_queries=num_queries,
+        num_drive_queries=num_drive_queries,
         aux_loss=aux_loss,
+        training=training
     )
     postprocessors = {'bbox': PostProcess()}
 

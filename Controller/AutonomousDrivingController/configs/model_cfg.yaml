@@ -20,4 +20,6 @@ model:
     return_intermediate_dec: true
 
   num_queries: 100
+  num_drive_queries: 50
   aux_loss: true # false only for inference
+  training: true # false only for inference

@@ -18,7 +18,7 @@ from datasets import get_coco_api_from_dataset
 from datasets.bdd import build
 from trainer import Trainer
 import util.misc as utils
-from models.detr import build_model
+from models.hyda import build_model
 from models.criterion import build_criterion
 import yaml
 
@@ -95,8 +95,10 @@ class Train:
             cfg['transformer']['dec_layers'],
             cfg['transformer']['pre_norm'],
             cfg['num_queries'],
+            cfg['num_drive_queries'],
             cfg['aux_loss'],
-            cfg['num_classes']
+            cfg['num_classes'],
+            cfg['training']
         )
         return model, postprocessors
 
@@ -109,6 +111,7 @@ class Train:
             criterion_cfg['giou_loss_coef'],
             criterion_cfg['mask_loss_coef'],
             criterion_cfg['dice_loss_coef'],
+            criterion_cfg['ahs_loss_coef'],
             model_cfg['aux_loss'],
             model_cfg['transformer']['dec_layers'],
             criterion_cfg['set_cost_class'],
@@ -403,7 +406,7 @@ class Train:
                     }, checkpoint_path)
 
             # Evaluate (chỉ cần coco_evaluator ở main process; Trainer bên trong có thể đã xử lý)
-            test_stats, coco_evaluator = trainer.evaluate(data_loader_val)
+            test_stats, coco_evaluator = trainer.evaluate(data_loader_val, self.common_cfg['common']['training']['print_freq_val'])
 
             log_stats = {
                 **{f'train_{k}': v for k, v in train_stats.items()},
@@ -440,9 +443,9 @@ class Train:
 
 
 if __name__ == "__main__":
-    model_yml = "Controller/AutonomousDrivingController/config/model_cfg.yaml"
-    common_yml = "Controller/AutonomousDrivingController/config/common_cfg.yaml"
-    criterion_yml = "Controller/AutonomousDrivingController/config/criterion_cfg.yaml"
+    model_yml = "configs/model_cfg.yaml"
+    common_yml = "configs/common_cfg.yaml"
+    criterion_yml = "configs/criterion_cfg.yaml"
 
     train = Train(model_yml, common_yml, criterion_yml)
     train.run()

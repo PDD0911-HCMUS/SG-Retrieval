@@ -12,6 +12,8 @@ from datasets.coco_eval import CocoEvaluator
 from datasets.panoptic_eval import PanopticEvaluator
 from pathlib import Path
 from typing import Dict, Iterable, Optional, Tuple
+
+
 class Trainer:
     def __init__(
         self,
@@ -89,6 +91,7 @@ class Trainer:
     def evaluate(
         self,
         data_loader: Iterable,
+        print_freq
     ) -> Tuple[Dict[str, float], Optional[CocoEvaluator]]:
         self.model.eval()
         self.criterion.eval()
@@ -108,7 +111,7 @@ class Trainer:
                 output_dir=os.path.join(self.output_dir, "panoptic_eval"),
             )
 
-        for i, (samples, targets) in enumerate(metric_logger.log_every(data_loader, 50, header)):
+        for i, (samples, targets) in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
             samples = samples.to(self.device)
             targets = [{k: v.to(self.device) for k, v in t.items()} for t in targets]
 

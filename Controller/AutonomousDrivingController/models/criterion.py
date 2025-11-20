@@ -114,6 +114,42 @@ class SetCriterion(nn.Module):
         }
         return losses
 
+    def loss_aux_hub(self, outputs, targets, indices, num_boxes):
+        """
+        Auxiliary supervision on S4.
+        Expects outputs to contain:
+            - aux_s4_logits: [B, N4, num_classes]
+            - aux_s4_boxes:  [B, N4, 4]
+        We reuse the same matcher and loss functions as the main head.
+        """
+        if ('aux_s4_logits' not in outputs) or ('aux_s4_boxes' not in outputs):
+            # Nothing to do (e.g. eval or model without AHS)
+            return {}
+
+        src_logits = outputs['aux_s4_logits']
+        src_boxes = outputs['aux_s4_boxes']
+
+        # Wrap into DETR-like dict so we can reuse existing loss functions
+        aux_outputs = {
+            'pred_logits': src_logits,
+            'pred_boxes': src_boxes,
+        }
+
+        # Hungarian matching for aux head (indices is ignored here)
+        aux_indices = self.matcher(aux_outputs, targets)
+
+        # Reuse label loss (without logging)
+        label_losses = self.loss_labels(aux_outputs, targets, aux_indices, num_boxes, log=False)
+        # Reuse box + giou losses
+        box_losses = self.loss_boxes(aux_outputs, targets, aux_indices, num_boxes)
+
+        losses = {
+            'loss_aux_hub_ce': label_losses['loss_ce'],
+            'loss_aux_hub_bbox': box_losses['loss_bbox'],
+            'loss_aux_hub_giou': box_losses['loss_giou'],
+        }
+        return losses
+        
     def _get_src_permutation_idx(self, indices):
         # permute predictions following indices
         batch_idx = torch.cat([torch.full_like(src, i) for i, (src, _) in enumerate(indices)])
@@ -131,7 +167,8 @@ class SetCriterion(nn.Module):
             'labels': self.loss_labels,
             'cardinality': self.loss_cardinality,
             'boxes': self.loss_boxes,
-            'masks': self.loss_masks
+            'masks': self.loss_masks,
+            'aux_hub': self.loss_aux_hub,
         }
         assert loss in loss_map, f'do you really want to compute {loss} loss?'
         return loss_map[loss](outputs, targets, indices, num_boxes, **kwargs)
@@ -229,6 +266,7 @@ def build_criterion(
         giou_loss_coef, 
         mask_loss_coef, 
         dice_loss_coef, 
+        ahs_loss_coef,
         aux_loss, 
         dec_layers,
         set_cost_class,
@@ -241,6 +279,11 @@ def build_criterion(
     weight_dict['loss_giou'] = giou_loss_coef
     weight_dict["loss_mask"] = mask_loss_coef
     weight_dict["loss_dice"] = dice_loss_coef
+    
+    # AHS loss weights (you can tune ahs_loss_coef)
+    weight_dict["loss_aux_hub_ce"] = ahs_loss_coef
+    weight_dict["loss_aux_hub_bbox"] = ahs_loss_coef * bbox_loss_coef
+    weight_dict["loss_aux_hub_giou"] = ahs_loss_coef * giou_loss_coef
         
     # TODO this is a hack
     if aux_loss:
@@ -251,6 +294,8 @@ def build_criterion(
 
     losses = ['labels', 'boxes', 'cardinality']
     losses += ["masks"]
+    # add AHS loss type
+    losses += ['aux_hub']
     
     criterion = SetCriterion(num_classes, matcher=matcher, weight_dict=weight_dict,
                              eos_coef=eos_coef, losses=losses)
