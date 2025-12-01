@@ -1,6 +1,3 @@
-[submodule "Controller/HyDAController"]
-	path = Controller/HyDAController
-	url = https://github.com/PDD0911-HCMUS/HyDA.git
 [submodule "Controller/IRESGController"]
 	path = Controller/IRESGController
 	url = https://github.com/PDD0911-HCMUS/IRESG.git
