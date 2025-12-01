@@ -4,7 +4,7 @@ from extensions import jwt, cors
 import os
 
 # ==== Register blueprints ====
-from Controller.RelTRSGGController import sgg_api
+from Controller.RelTRController import sgg_api
 from Controller.IRESGController import rev_v2_api
 from Controller.PageController import page_api
 from Controller.UserController import user_api
