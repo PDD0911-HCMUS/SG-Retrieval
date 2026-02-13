@@ -7,3 +7,6 @@
 [submodule "Controller/RelTRController"]
 	path = Controller/RelTRController
 	url = https://github.com/PDD0911-HCMUS/RelTR.git
+[submodule "Controller/RAGInteractIRController"]
+	path = Controller/RAGInteractIRController
+	url = https://github.com/PDD0911-HCMUS/RAGInteractIR.git
