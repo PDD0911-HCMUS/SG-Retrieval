@@ -28,3 +28,5 @@ Controller/IRESGController/work_dir
 Datasets/__init__.py
 
 workdirs
+
+dump.sql
